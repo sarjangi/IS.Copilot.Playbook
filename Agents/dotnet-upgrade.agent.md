@@ -12,6 +12,20 @@ Stop only on catastrophic build failures.
 
 ---
 
+## Usage Notes (Human Operator)
+
+> **Before starting**, read these two notes to avoid interruptions during the upgrade:
+
+1. **Allow terminal commands for the session**  
+   When prompted to allow a terminal command, choose **Allow in Session**.  
+   This lets the agent run all commands (`dotnet restore`, `dotnet build`, `dotnet test`, etc.) without asking for permission each time.
+
+2. **If the agent pauses or stops mid-upgrade**  
+   Type **`Continue`** in the chat to resume.  
+   The agent will pick up from where it left off and proceed automatically through the remaining phases.
+
+---
+
 ## Phase 1 — Discovery
 - Locate all `.sln` and `.csproj` files.
 - Extract `<TargetFramework>` values.
