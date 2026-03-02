@@ -14,13 +14,22 @@ Stop only on catastrophic build failures.
 
 ## Usage Notes (Human Operator)
 
-> **Before starting**, read these two notes to avoid interruptions during the upgrade:
+> **Before starting**, read these notes to avoid interruptions during the upgrade:
 
-1. **Allow terminal commands for the session**  
+1. **Keep this file open as the active document**  
+   Make sure `dotnet-upgrade.agent.md` is the active/focused file in your editor before starting.  
+   GitHub Copilot uses the active document as context, so keeping this file open ensures the agent follows the correct instructions throughout the upgrade.
+
+2. **Use this exact prompt in GitHub Copilot to begin**  
+   In the GitHub Copilot chat, type:  
+   > `Follow steps in dotnet-upgrade.agent.md file and upgrade to .NET 8`  
+   This triggers the agent to start from Phase 1 and proceed automatically through all phases.
+
+3. **Allow terminal commands for the session**  
    When prompted to allow a terminal command, choose **Allow in Session**.  
    This lets the agent run all commands (`dotnet restore`, `dotnet build`, `dotnet test`, etc.) without asking for permission each time.
 
-2. **If the agent pauses or stops mid-upgrade**  
+4. **If the agent pauses or stops mid-upgrade**  
    Type **`Continue`** in the chat to resume.  
    The agent will pick up from where it left off and proceed automatically through the remaining phases.
 
