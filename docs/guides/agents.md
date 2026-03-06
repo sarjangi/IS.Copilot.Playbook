@@ -9,7 +9,7 @@ This guide explains, in simple terms:
 - How to design one
 - How to keep it safe and reliable
 
-By the end, you’ll understand the basics needed to build your first agent.
+By the end, youï¿½ll understand the basics needed to build your first agent.
 
 ---
 
@@ -57,7 +57,7 @@ Build an agent if your workflow involves:
    - Interpret free text  
    _Example: Processing insurance claims._
 
-If your problem is simple and rule-based, you probably don’t need an agent.
+If your problem is simple and rule-based, you probably donï¿½t need an agent.
 
 ---
 
@@ -140,7 +140,7 @@ The agent runs in a loop until:
 - It calls a tool
 - It reaches a stopping condition
 
-![Alt text](images/SingleAgentSystems.png "Single Agent Systems")
+![Alt text](../images/SingleAgentSystems.png "Single Agent Systems")
 
 Start with this approach whenever possible.
 
@@ -162,7 +162,7 @@ One central agent manages specialized agents.
 - You want one agent controlling everything.
 - You need unified communication with the user.
 
-![Alt text](images/ManagerPattern.png "Manager Pattern")
+![Alt text](../images/ManagerPattern.png "Manager Pattern")
 
 #### Decentralized Pattern
 Agents hand off tasks to each other.
@@ -173,7 +173,7 @@ Agents hand off tasks to each other.
 - Tasks are clearly separated.
 - You want specialized agents to fully take over.
 
-![Alt text](images/DecentralizedPattern.png "Decentralized Pattern")
+![Alt text](../images/DecentralizedPattern.png "Decentralized Pattern")
 
 ---
 
@@ -190,7 +190,7 @@ Think of guardrails as layers of protection.
 - **Rules-Based Protections:** Input length limits, blocklists, regex filters.
 - **Output Validation:** Ensures brand-safe responses.
 
-![Alt text](images/SafeResponses.png "Safe Responses")
+![Alt text](../images/SafeResponses.png "Safe Responses")
 
 ---
 
@@ -225,7 +225,7 @@ Agents are powerful systems that:
 - Keep humans in the loop early on.
 - Improve gradually with real-world testing.
 
-Agents are not just chatbots—they are systems that can automate entire workflows intelligently and safely.  
+Agents are not just chatbotsï¿½they are systems that can automate entire workflows intelligently and safely.  
 Start small, test often, and expand over time.
 
 References
