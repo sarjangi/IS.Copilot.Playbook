@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/settings.json
+.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Git
+.git/
+
+# Eval outputs (large, generated files)
+*-workspace/
+feedback.json
+grading.json
+benchmark.json
+comparison.json
+analysis.json
+metrics.json
+timing.json
+history.json
+*.skill.zip
+
+# Test outputs
+.pytest_cache/
+htmlcov/
+.coverage
+*.cover
+
+# Logs
+*.log
+logs/

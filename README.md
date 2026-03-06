@@ -1,51 +1,197 @@
 # IS.Copilot.Playbook
 
-A shared playbook of GitHub Copilot **agents**, **agent instructions**, **prompts**, and **guides** for automating and standardising engineering tasks at Vancity.
+A shared playbook of GitHub Copilot **agents**, **instructions**, **prompts**, and **guides** for automating and standardizing engineering tasks at Vancity.
 
-This repository is the single source of truth for reusable AI-assisted workflows across teams.
-
----
-
-## What's in This Playbook?
-
-| Type | Description | Where to Find |
-|---|---|---|
-| **Agents** | `.agent.md` files that run autonomously via GitHub Copilot agent mode | `Agents/` folder |
-| **Agent Instructions** | Rules and behavior definitions that drive each agent | Inside each `.agent.md` file |
-| **Instructions** | Reusable guidelines that shape how the AI responds � format, tone, style, constraints | `Instructions/` folder |
-| **Prompts** | Ready-to-use prompts to trigger agents or get consistent AI responses | Listed in each agent's **Usage Notes** section |
-| **Guides** | Learning material on AI instructions, prompt engineering, and agent design | Root folder `.md` files |
-
-> **New to this playbook?** Start here:
-> 1. Read [`Prompt-Instruction-Agent-Comparison.md`](Prompt-Instruction-Agent-Comparison.md) to understand the difference between a prompt, instruction, agent, and agent instruction.
-> 2. Read [`AI-Instructions.md`](AI-Instructions.md) to learn how to write effective instructions.
-> 3. Read [`Agents.md`](Agents.md) to understand how agents work and when to use them.
-> 4. Open an agent from the `Agents/` folder and follow its **Usage Notes** to run it.
+This repository is the single source of truth for reusable AI-assisted workflows across teams, organized by programming language for easy discovery.
 
 ---
 
-## Getting Started
+## 📁 Repository Structure
 
-### How to Run an Agent
+```
+.github/                          # GitHub Copilot customizations
+├── copilot-instructions.md       # Always-on workspace instructions
+├── dotnet/                       # .NET / C# specific
+│   ├── skills/                   # Complex multi-step agents
+│   ├── prompts/                  # Slash commands
+│   └── instructions/             # Auto-applied coding standards
+├── python/                       # Python specific
+│   ├── skills/
+│   ├── prompts/
+│   └── instructions/
+├── javascript/                   # JavaScript / TypeScript specific
+│   ├── skills/
+│   ├── prompts/
+│   └── instructions/
+└── shared/                       # Language-agnostic content
+    ├── skills/
+    ├── prompts/
+    └── instructions/
 
-1. Open the agent file (e.g., `Agents/dotnet-upgrade.agent.md`) in Visual Studio Code.
-2. Make sure the agent file is the **active/focused document** in your editor.
-3. Open **GitHub Copilot Chat** and switch to **Agent mode**.
-4. Type the prompt listed in the agent's **Usage Notes** section to begin.
+docs/                             # Educational materials
+├── guides/                       # Learning tutorials
+│   ├── comparison.md             # Understand customization types
+│   ├── ai-instructions.md        # Write effective instructions
+│   └── agents.md                 # Build autonomous agents
+└── images/                       # Diagrams and visualizations
 
-> Each agent file contains its own usage instructions and the exact prompt to use.
+tools/                            # Development utilities
+└── skill-creator/                # Tools for building/testing customizations
+```
 
 ---
 
-## Contribute
+## 🚀 Getting Started
 
-### Adding a New Agent
-1. Create a new `.agent.md` file under the `Agents/` folder.
-2. Add the YAML front-matter (`name`, `description`, `tools`).
-3. Add a **Usage Notes** section with the prompt to start and any operator instructions.
+### Browse Content by Language
 
-### Adding a New Instruction
-1. Create a new `.md` file under the `Instructions/` folder.
+- **[.NET / C#](.github/dotnet/)** - Skills, prompts, and instructions for .NET development
+- **[Python](.github/python/)** - Python-specific customizations
+- **[JavaScript](.github/javascript/)** - JavaScript/TypeScript customizations
+- **[Shared](.github/shared/)** - Language-agnostic customizations
 
-### Adding a New Guide or Prompt
-1. Create a new `.md` file in the root folder.
+### Test a Prompt or Skill
+
+1. Open **GitHub Copilot Chat** in VS Code
+2. Type `/` to see available commands
+3. Select a command (e.g., `/dotnet-upgrade`, `/code-review`)
+4. Follow the on-screen instructions
+
+### See Instructions in Action
+
+Instructions automatically apply to matching files:
+- Open a `.cs` file → C# style instructions activate
+- Open a `.py` file → Python style instructions activate
+- Ask GitHub Copilot for help, and it follows these guidelines
+
+---
+
+## 📚 Learning Path
+
+New to GitHub Copilot customizations? Follow this progression:
+
+1. **[Understand the Types](docs/guides/comparison.md)** - Learn the difference between prompts, instructions, agents, and skills
+2. **[Write Instructions](docs/guides/ai-instructions.md)** - Master the art of writing effective AI instructions
+3. **[Build Agents](docs/guides/agents.md)** - Create autonomous multi-step agents with proper orchestration
+
+Complete documentation: [**docs/**](docs/)
+
+---
+
+## 🎯 What's in This Playbook?
+
+| Type | Description | Where to Find | How to Use |
+|------|-------------|---------------|------------|
+| **Skills** | Complex multi-step autonomous agents | `.github/<language>/skills/*/SKILL.md` | Type `/skill-name` in Copilot Chat |
+| **Prompts** | Simple slash commands for quick tasks | `.github/<language>/prompts/*.prompt.md` | Type `/prompt-name` in Copilot Chat |
+| **Instructions** | Auto-applied context for specific file types | `.github/<language>/instructions/*.instructions.md` | Automatically activates when opening matching files |
+| **Guides** | Learning materials and best practices | `docs/guides/*.md` | Read for understanding |
+
+---
+
+## 📝 Available Content
+
+### .NET / C#
+
+- **Skills**: [`dotnet-upgrade`](.github/dotnet/skills/dotnet-upgrade/SKILL.md) - Automatic .NET framework upgrades
+- **Instructions**: C# coding standards for all `.cs` files
+
+### Python
+
+- **Instructions**: PEP 8 coding standards for all `.py` files
+
+### Shared / Language-Agnostic
+
+- **Skills**: [`example-skill`](.github/shared/skills/example-skill/SKILL.md) - Template for building new skills
+- **Prompts**: [`code-review`](.github/shared/prompts/code-review.prompt.md) - Comprehensive code reviews
+
+_More content coming soon as teams contribute!_
+
+---
+
+## ✨ Contributing
+
+Want to add your own agents, prompts, or instructions?
+
+1. **Choose the right folder**: Use `.github/<language>/` for language-specific content, or `.github/shared/` for multi-language content
+2. **Follow format requirements**: See [CONTRIBUTING.md](CONTRIBUTING.md) for YAML frontmatter schemas
+3. **Validate**: Run `python tools/skill-creator/scripts/quick_validate.py`
+4. **Test**: Try it in VS Code with GitHub Copilot
+5. **Submit**: Create a pull request
+
+Detailed guide: [**CONTRIBUTING.md**](CONTRIBUTING.md)
+
+---
+
+## 🛠️ Development Tools
+
+### skill-creator Framework
+
+The [`tools/skill-creator/`](tools/skill-creator/) directory contains utilities for building and improving customizations:
+
+- **Validation**: `quick_validate.py` - Check frontmatter and structure
+- **Packaging**: `package_skill.py` - Create distributable .skill.zip files
+- **Evaluation**: Specialized agents for testing and comparing outputs
+- **Reporting**: Generate HTML review pages for iteration feedback
+
+**Documentation**: [tools/skill-creator/SKILL.md](tools/skill-creator/SKILL.md)
+
+### Validation Before Committing
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Validate all customization files
+python tools/skill-creator/scripts/quick_validate.py
+```
+
+---
+
+## 🔍 How It Works
+
+### Workspace Instructions
+[`.github/copilot-instructions.md`](.github/copilot-instructions.md) contains always-on instructions that apply to the entire workspace.
+
+### Language-Specific Instructions
+Instructions in `.github/<language>/instructions/*.instructions.md` automatically apply when you open files matching their `applyTo` glob pattern.
+
+### Prompts and Skills
+Prompts and skills appear in the `/` command menu in GitHub Copilot Chat. Type `/` followed by the customization name to invoke them.
+
+---
+
+## 📖 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [README.md](README.md) | This file - repository overview |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to add content |
+| [docs/README.md](docs/README.md) | Learning path guide |
+| [docs/guides/comparison.md](docs/guides/comparison.md) | Customization types explained |
+| [docs/guides/ai-instructions.md](docs/guides/ai-instructions.md) | Writing instructions guide |
+| [docs/guides/agents.md](docs/guides/agents.md) | Building agents guide |
+| [tools/skill-creator/SKILL.md](tools/skill-creator/SKILL.md) | Development tools documentation |
+| [tools/skill-creator/references/schemas.md](tools/skill-creator/references/schemas.md) | Complete format specifications |
+
+---
+
+## 🏢 About Vancity
+
+This playbook is maintained by the Vancity engineering organization to share knowledge and promote consistency across development teams.
+
+---
+
+## 🔗 Quick Links
+
+- [Browse .NET Customizations](.github/dotnet/)
+- [Browse Python Customizations](.github/python/)
+- [Browse JavaScript Customizations](.github/javascript/)
+- [Browse Shared Customizations](.github/shared/)
+- [Learn How to Contribute](CONTRIBUTING.md)
+- [Explore Learning Guides](docs/)
+- [Development Tools](tools/skill-creator/)
+
+---
+
+**Ready to get started?** Pick a language folder and explore the available customizations!
