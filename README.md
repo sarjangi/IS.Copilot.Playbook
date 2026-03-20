@@ -98,6 +98,7 @@ Complete documentation: [**docs/**](docs/)
 
 ### Python
 
+- **Skills**: [`sql-injection-scanner`](.github/python/skills/sql-injection-scanner/SKILL.md) - Autonomous SQL injection vulnerability scanner
 - **Instructions**: PEP 8 coding standards for all `.py` files
 
 ### Shared / Language-Agnostic
