@@ -98,12 +98,13 @@ Complete documentation: [**docs/**](docs/)
 
 ### Python
 
-- **Skills**: [`sql-injection-scanner`](.github/python/skills/sql-injection-scanner/SKILL.md) - Autonomous SQL injection vulnerability scanner
 - **Instructions**: PEP 8 coding standards for all `.py` files
 
 ### Shared / Language-Agnostic
 
-- **Skills**: [`example-skill`](.github/shared/skills/example-skill/SKILL.md) - Template for building new skills
+- **Skills**: 
+  - [`example-skill`](.github/shared/skills/example-skill/SKILL.md) - Template for building new skills
+  - [`sql-injection-scanner`](.github/shared/skills/sql-injection-scanner/SKILL.md) - Autonomous SQL injection vulnerability scanner (supports 7 languages)
 - **Prompts**: [`code-review`](.github/shared/prompts/code-review.prompt.md) - Comprehensive code reviews
 
 _More content coming soon as teams contribute!_

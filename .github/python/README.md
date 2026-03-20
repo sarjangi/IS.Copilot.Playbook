@@ -6,11 +6,7 @@ This folder contains GitHub Copilot customizations specific to Python developmen
 
 ### Skills (Complex Multi-Step Agents)
 
-| Skill | Description |
-|-------|-------------|
-| [`sql-injection-scanner`](skills/sql-injection-scanner/SKILL.md) | Autonomous SQL injection vulnerability scanner for Python, JavaScript, TypeScript, C#, Java, PHP, and SQL files |
-
-_Also check [../shared/skills/](../shared/skills/) for language-agnostic skills._
+_No Python-specific skills yet. Check [../shared/skills/](../shared/skills/) for language-agnostic skills like the SQL injection scanner._
 
 ### Prompts (Slash Commands)
 
