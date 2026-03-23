@@ -118,27 +118,265 @@ User.query.filter(User.id == user_id).first()
 User.objects.filter(id=user_id).first()
 ```
 
+---
+
+### JavaScript/TypeScript Patterns
+
+#### Unsafe Patterns (JavaScript/TypeScript):
+```javascript
+// UNSAFE - String concatenation
+connection.query("SELECT * FROM users WHERE id = " + userId);
+
+// UNSAFE - Template literals with user input
+connection.query(`SELECT * FROM users WHERE id = ${userId}`);
+
+// UNSAFE - String concatenation in template
+const query = "SELECT * FROM " + tableName + " WHERE id = " + id;
+connection.query(query);
+```
+
+#### Safe Patterns (JavaScript/TypeScript):
+```javascript
+// SAFE - Parameterized query (mysql/mysql2)
+connection.query('SELECT * FROM users WHERE id = ?', [userId]);
+
+// SAFE - Named placeholders (node-postgres)
+client.query('SELECT * FROM users WHERE id = $1', [userId]);
+
+// SAFE - Query builder (Knex.js)
+knex('users').where('id', userId).first();
+
+// SAFE - ORM (Sequelize)
+User.findByPk(userId);
+
+// SAFE - ORM (TypeORM)
+userRepository.findOneBy({ id: userId });
+```
+
+---
+
+### C# Patterns
+
+#### Unsafe Patterns (C#):
+```csharp
+// UNSAFE - String concatenation
+SqlCommand cmd = new SqlCommand("SELECT * FROM users WHERE id = " + userId, conn);
+
+// UNSAFE - String interpolation
+string query = $"SELECT * FROM users WHERE id = {userId}";
+SqlCommand cmd = new SqlCommand(query, conn);
+
+// UNSAFE - String.Format
+string query = String.Format("SELECT * FROM users WHERE id = {0}", userId);
+```
+
+#### Safe Patterns (C#):
+```csharp
+// SAFE - Parameterized query
+SqlCommand cmd = new SqlCommand("SELECT * FROM users WHERE id = @id", conn);
+cmd.Parameters.AddWithValue("@id", userId);
+
+// SAFE - SqlParameter with type
+SqlCommand cmd = new SqlCommand("SELECT * FROM users WHERE id = @id", conn);
+cmd.Parameters.Add(new SqlParameter("@id", SqlDbType.Int) { Value = userId });
+
+// SAFE - Entity Framework
+var user = context.Users.FirstOrDefault(u => u.Id == userId);
+
+// SAFE - LINQ to SQL
+var user = from u in context.Users where u.Id == userId select u;
+
+// SAFE - Dapper ORM
+var user = connection.QueryFirstOrDefault<User>("SELECT * FROM users WHERE id = @id", new { id = userId });
+```
+
+---
+
+### Java Patterns
+
+#### Unsafe Patterns (Java):
+```java
+// UNSAFE - String concatenation
+Statement stmt = conn.createStatement();
+String query = "SELECT * FROM users WHERE id = " + userId;
+ResultSet rs = stmt.executeQuery(query);
+
+// UNSAFE - String.format
+String query = String.format("SELECT * FROM users WHERE id = %s", userId);
+stmt.executeQuery(query);
+
+// UNSAFE - StringBuilder concatenation
+StringBuilder query = new StringBuilder("SELECT * FROM users WHERE id = ");
+query.append(userId);
+stmt.executeQuery(query.toString());
+```
+
+#### Safe Patterns (Java):
+```java
+// SAFE - PreparedStatement
+PreparedStatement stmt = conn.prepareStatement("SELECT * FROM users WHERE id = ?");
+stmt.setInt(1, userId);
+ResultSet rs = stmt.executeQuery();
+
+// SAFE - Named parameters (Spring JDBC)
+NamedParameterJdbcTemplate template = new NamedParameterJdbcTemplate(dataSource);
+Map<String, Object> params = new HashMap<>();
+params.put("id", userId);
+template.queryForObject("SELECT * FROM users WHERE id = :id", params, User.class);
+
+// SAFE - JPA/Hibernate
+User user = entityManager.find(User.class, userId);
+
+// SAFE - JPQL with parameters
+TypedQuery<User> query = entityManager.createQuery(
+    "SELECT u FROM User u WHERE u.id = :id", User.class);
+query.setParameter("id", userId);
+User user = query.getSingleResult();
+```
+
+---
+
+### PHP Patterns
+
+#### Unsafe Patterns (PHP):
+```php
+// UNSAFE - String concatenation
+$query = "SELECT * FROM users WHERE id = " . $userId;
+mysqli_query($conn, $query);
+
+// UNSAFE - Double quote interpolation
+$query = "SELECT * FROM users WHERE id = $userId";
+mysqli_query($conn, $query);
+
+// UNSAFE - sprintf
+$query = sprintf("SELECT * FROM users WHERE id = %s", $userId);
+mysqli_query($conn, $query);
+```
+
+#### Safe Patterns (PHP):
+```php
+// SAFE - PDO prepared statements (positional)
+$stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+$stmt->execute([$userId]);
+
+// SAFE - PDO prepared statements (named)
+$stmt = $pdo->prepare("SELECT * FROM users WHERE id = :id");
+$stmt->execute(['id' => $userId]);
+
+// SAFE - MySQLi prepared statements
+$stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
+$stmt->bind_param("i", $userId);
+$stmt->execute();
+
+// SAFE - Laravel Eloquent
+$user = User::find($userId);
+
+// SAFE - Laravel Query Builder
+$user = DB::table('users')->where('id', $userId)->first();
+```
+
+---
+
+### SQL Files Patterns
+
+#### Unsafe Patterns (SQL Scripts):
+```sql
+-- UNSAFE - Dynamic SQL with concatenation (stored procedures)
+DECLARE @query NVARCHAR(MAX);
+SET @query = 'SELECT * FROM users WHERE id = ' + @userId;
+EXEC(@query);
+
+-- UNSAFE - String concatenation in dynamic SQL
+EXECUTE('SELECT * FROM users WHERE username = ''' + @username + '''');
+```
+
+#### Safe Patterns (SQL Scripts):
+```sql
+-- SAFE - Parameterized stored procedure
+CREATE PROCEDURE GetUserById
+    @UserId INT
+AS
+BEGIN
+    SELECT * FROM users WHERE id = @UserId;
+END
+
+-- SAFE - sp_executesql with parameters
+DECLARE @query NVARCHAR(MAX);
+SET @query = N'SELECT * FROM users WHERE id = @id';
+EXEC sp_executesql @query, N'@id INT', @id = @userId;
+```
+
+---
+
 ### Detection Regex Patterns
 
-Use these patterns to identify vulnerabilities:
+Use these patterns to identify vulnerabilities across all languages:
 
+**Python-specific patterns:**
 ```regex
 1. execute\s*\([^)]*["\'].*?\+.*?["\'][^)]*\)         # Concatenation in execute
 2. execute\s*\([^)]*f["\'].*?{.*?}.*?["\'][^)]*\)    # F-strings in execute
 3. ["\'].*?%s.*?["\'].*?%                             # %-format strings
 4. \.format\s*\([^)]+\).*?execute                     # .format() before execute
 5. ["\'].*?\+.*?str\s*\(                              # str() concatenation
-6. execute\s*\([^)]*["\'][^"\']*\+[^"\']*["\']       # Direct concatenation
+```
+
+**JavaScript/TypeScript patterns:**
+```regex
+6. query\s*\([^)]*["\'].*?\+.*?["\'][^)]*\)          # Concatenation in query
+7. query\s*\(`.*?\$\{.*?\}.*?`\)                      # Template literal interpolation
+8. executeQuery\s*\([^)]*["\'].*?\+                   # Concatenation in executeQuery
+```
+
+**C# patterns:**
+```regex
+9. SqlCommand\s*\([^)]*\$".*?\{.*?\}                  # String interpolation
+10. SqlCommand\s*\([^)]*".*?\+.*?"                    # Concatenation in SqlCommand
+11. String\.Format\s*\(.*?\).*?SqlCommand             # String.Format before SQL
+```
+
+**Java patterns:**
+```regex
+12. executeQuery\s*\([^)]*".*?\+.*?"                  # Concatenation in executeQuery
+13. createStatement\(\).*?execute                     # Statement (not PreparedStatement)
+14. String\.format\s*\(.*?\).*?execute                # String.format before execute
+```
+
+**PHP patterns:**
+```regex
+15. mysqli_query\s*\([^)]*".*?\$                      # Variable interpolation
+16. mysqli_query\s*\([^)]*".*?\..*?"                  # Concatenation with .
+17. sprintf\s*\(.*?\).*?mysqli_query                  # sprintf before query
+```
+
+**SQL patterns:**
+```regex
+18. EXEC\s*\(.*?\+                                    # Dynamic SQL with concatenation
+19. EXECUTE\s*\(["\'].*?\+.*?["\']                    # EXECUTE with concatenation
+```
+
+**General cross-language patterns:**
+```regex
+20. (SELECT|INSERT|UPDATE|DELETE).*?\+.*?(WHERE|VALUES|SET)  # SQL keywords with concatenation
+21. (query|execute).*?["\'].*?\$\{                     # Template literal patterns
 ```
 
 ### Severity Ratings
 
 - **🔴 CRITICAL**: User input directly concatenated with no escaping or validation
-  - Example: `execute("SELECT * FROM users WHERE id = " + request.GET['id'])`
+  - Python: `execute("SELECT * FROM users WHERE id = " + request.GET['id'])`
+  - JavaScript: `query("SELECT * FROM users WHERE id = " + req.params.id)`
+  - C#: `new SqlCommand("SELECT * FROM users WHERE id = " + Request["id"], conn)`
+  - Java: `stmt.executeQuery("SELECT * FROM users WHERE id = " + request.getParameter("id"))`
+  - PHP: `mysqli_query($conn, "SELECT * FROM users WHERE id = " . $_GET['id'])`
   - Risk: Immediate exploitation possible
 
-- **🟠 HIGH**: Unsafe construction pattern detected (f-string, concatenation, format)
-  - Example: `execute(f"SELECT * FROM users WHERE id = {user_id}")`
+- **🟠 HIGH**: Unsafe construction pattern detected (f-string, template literal, concatenation, format)
+  - Python: `execute(f"SELECT * FROM users WHERE id = {user_id}")`
+  - JavaScript: `query(\`SELECT * FROM users WHERE id = ${userId}\`)`
+  - C#: `new SqlCommand($"SELECT * FROM users WHERE id = {userId}", conn)`
+  - Java: `stmt.executeQuery(String.format("SELECT * FROM users WHERE id = %s", userId))`
+  - PHP: `mysqli_query($conn, "SELECT * FROM users WHERE id = $userId")`
   - Risk: Likely exploitable depending on input source
 
 - **🟡 MEDIUM**: Potentially unsafe pattern requiring human review
@@ -147,10 +385,36 @@ Use these patterns to identify vulnerabilities:
 
 ### Additional Security Checks
 
-For **Python files** (`.py`), also check using Bandit if available:
+Use language-specific security tools when available:
+
+**Python**:
 - Run: `bandit -r <file> -t B608 -f json`
 - B608 detects SQL injection vulnerabilities
-- Merge Bandit findings with regex results for comprehensive coverage
+- Merge Bandit findings with regex results
+
+**JavaScript/TypeScript**:
+- ESLint with security plugins: `eslint-plugin-security`
+- Semgrep: `semgrep --config=r2c-security-audit`
+
+**C#**:
+- Security Code Scan analyzer
+- Roslyn Security Guard
+- SonarQube for .NET
+
+**Java**:
+- SpotBugs with Find Security Bugs plugin
+- SonarQube for Java
+- Semgrep: `semgrep --config=java-security`
+
+**PHP**:
+- RIPS (static analyzer)
+- Psalm with security plugin
+- PHP_CodeSniffer with Security Sniffs
+
+**SQL**:
+- Static analysis of stored procedures
+- Check for dynamic SQL patterns
+- Review EXECUTE/sp_executesql usage
 
 **Output**: List of findings with:
 - File path and line number
