@@ -20,11 +20,12 @@ import re
 def _parse_git_url(repo_url: str) -> Dict[str, str]:
     """
     Parse a Git URL and extract components.
-    Supports: https://github.com/user/repo, git@github.com:user/repo.git, etc.
+    Supports: Azure DevOps, GitHub, GitLab, Bitbucket, and any Git server with HTTPS.
+    Examples: https://dev.azure.com/org/_git/repo, https://github.com/user/repo
     """
     parsed = urlparse(repo_url)
     
-    # Handle SSH URLs (git@github.com:user/repo.git)
+    # Handle SSH URLs (git@github.com:user/repo.git or similar)
     if repo_url.startswith('git@'):
         match = re.match(r'git@([^:]+):([^/]+)/(.+?)(\.git)?$', repo_url)
         if match:
@@ -52,7 +53,7 @@ def _parse_git_url(repo_url: str) -> Dict[str, str]:
 def _inject_auth_token(repo_url: str, auth_token: str) -> str:
     """
     Inject authentication token into HTTPS URL.
-    Example: https://github.com/user/repo -> https://TOKEN@github.com/user/repo
+    Example: https://dev.azure.com/org/_git/repo -> https://TOKEN@dev.azure.com/org/_git/repo
     """
     if not auth_token or not repo_url.startswith('http'):
         return repo_url
@@ -126,9 +127,9 @@ async def scan_repository_handler(
     Clone a Git repository and scan it for security vulnerabilities.
     
     Args:
-        repo_url: HTTPS Git URL (e.g., https://github.com/user/repo)
+        repo_url: HTTPS Git URL (e.g., https://dev.azure.com/Vancity/_git/MyRepo)
         branch: Branch, tag, or commit to scan (default: "main")
-        auth_token: GitHub Personal Access Token for private repos (optional)
+        auth_token: Personal Access Token for private repos (optional, works with Azure DevOps, GitHub, etc.)
         file_patterns: List of file patterns to scan (default: ['.py', '.js', '.ts', etc.])
         exclude_patterns: List of patterns to exclude (default: None)
         scan_type: Type of scan - 'security' or 'full' (default: 'security')
@@ -305,8 +306,8 @@ async def list_repository_branches_handler(
     List all branches in a remote Git repository.
     
     Args:
-        repo_url: HTTPS Git URL
-        auth_token: GitHub Personal Access Token for private repos (optional)
+        repo_url: HTTPS Git URL (e.g., https://dev.azure.com/Vancity/_git/MyRepo)
+        auth_token: Personal Access Token for private repos (optional)
     
     Returns:
         Dictionary with list of branch names
@@ -359,8 +360,8 @@ async def check_repository_access_handler(
     Check if a repository is accessible (exists and user has permissions).
     
     Args:
-        repo_url: HTTPS Git URL
-        auth_token: GitHub Personal Access Token for private repos (optional)
+        repo_url: HTTPS Git URL (e.g., https://dev.azure.com/Vancity/_git/MyRepo)
+        auth_token: Personal Access Token for private repos (optional)
     
     Returns:
         Dictionary indicating if repository is accessible
@@ -406,8 +407,8 @@ if False:  # Disabled for standalone usage
     description="""Clone a Git repository and scan it for SQL injection vulnerabilities.
 
 Supports ALL Git hosting providers:
-- GitHub: https://github.com/owner/repo
 - Azure DevOps: https://dev.azure.com/org/project/_git/repo
+- GitHub: https://github.com/owner/repo
 - GitLab: https://gitlab.com/owner/repo
 - Bitbucket: https://bitbucket.org/owner/repo
 - Any Git server with HTTPS access
@@ -430,7 +431,7 @@ Try WITHOUT auth_token first - only use token if authentication fails.""",
         "properties": {
             "repo_url": {
                 "type": "string",
-                "description": "HTTPS Git URL (e.g., https://github.com/user/repo)"
+                "description": "HTTPS Git URL (e.g., https://dev.azure.com/Vancity/_git/MyRepo)"
             },
             "branch": {
                 "type": "string",
@@ -438,7 +439,7 @@ Try WITHOUT auth_token first - only use token if authentication fails.""",
             },
             "auth_token": {
                 "type": "string",
-                "description": "GitHub Personal Access Token for private repos (optional)"
+                "description": "Personal Access Token for private repos (optional, Azure DevOps PAT or GitHub token)"
             },
             "file_patterns": {
                 "type": "array",
@@ -463,7 +464,7 @@ Try WITHOUT auth_token first - only use token if authentication fails.""",
 
     LIST_BRANCHES_TOOL = FunctionTool(
     name="list_repository_branches",
-    description="""List all branches in a remote Git repository (GitHub, Azure DevOps, GitLab, etc.).
+    description="""List all branches in a remote Git repository (Azure DevOps, GitHub, GitLab, etc.).
 
 Works with any Git hosting provider. Useful to see available branches before scanning.
 
@@ -477,7 +478,7 @@ Use this when user asks: 'what branches are in...', 'list branches', 'show branc
             },
             "auth_token": {
                 "type": "string",
-                "description": "GitHub Personal Access Token for private repos (optional)"
+                "description": "Personal Access Token for private repos (optional, Azure DevOps PAT or GitHub token)"
             }
         },
         "required": ["repo_url"]
@@ -487,7 +488,7 @@ Use this when user asks: 'what branches are in...', 'list branches', 'show branc
 
     CHECK_ACCESS_TOOL = FunctionTool(
     name="check_repository_access",
-    description="""Check if a Git repository (GitHub, Azure DevOps, GitLab, etc.) is accessible.
+    description="""Check if a Git repository (Azure DevOps, GitHub, GitLab, etc.) is accessible.
 
 Verifies:
 - Repository exists
@@ -504,7 +505,7 @@ Use this to validate access before scanning, especially for private repos.""",
             },
             "auth_token": {
                 "type": "string",
-                "description": "GitHub Personal Access Token for private repos (optional)"
+                "description": "Personal Access Token for private repos (optional, Azure DevOps PAT or GitHub token)"
             }
         },
         "required": ["repo_url"]
