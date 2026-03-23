@@ -1,0 +1,73 @@
+# Example: How to Use SQL Injection Scanner in Your Project
+#
+# Copy this file to your project's repository as:
+#   azure-pipelines.yml  (at repository root)
+#   OR
+#   pipelines/security-scan.yml  (in a subfolder)
+#
+# Then create a new pipeline in Azure DevOps pointing to this file.
+
+# Trigger on commits to these branches
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+      - feature/*
+
+# Also run on pull requests
+pr:
+  branches:
+    include:
+      - main
+      - develop
+
+# Reference the Playbook repository containing the scanner
+resources:
+  repositories:
+    - repository: playbook
+      type: git
+      name: Vancity/IS.Copilot.Playbook  # Format: ProjectName/RepoName
+
+# Extend the reusable template
+extends:
+  template: .github/shared/skills/sql-injection-scanner/pipeline-template.yml@playbook
+  parameters:
+    pythonVersion: '3.12'
+    scanPath: '$(Build.SourcesDirectory)'  # Scan the entire repository
+    failOnFindings: true  # Fail the build if vulnerabilities are found
+    generateReport: true  # Generate HTML test report
+
+# ============================================================================
+# Advanced Configuration Examples
+# ============================================================================
+
+# Example 1: Scan only specific folder
+# extends:
+#   template: .github/shared/skills/sql-injection-scanner/pipeline-template.yml@playbook
+#   parameters:
+#     scanPath: '$(Build.SourcesDirectory)/src'
+
+# Example 2: Don't fail build, just report findings
+# extends:
+#   template: .github/shared/skills/sql-injection-scanner/pipeline-template.yml@playbook
+#   parameters:
+#     failOnFindings: false
+
+# Example 3: Run scanner as additional stage in existing pipeline
+# resources:
+#   repositories:
+#     - repository: playbook
+#       type: git
+#       name: Vancity/IS.Copilot.Playbook
+# 
+# stages:
+#   - stage: Build
+#     jobs:
+#       - job: BuildApp
+#         steps:
+#           - script: echo "Building app..."
+#   
+#   - template: .github/shared/skills/sql-injection-scanner/pipeline-template.yml@playbook
+#     parameters:
+#       scanPath: '$(Build.SourcesDirectory)/src'

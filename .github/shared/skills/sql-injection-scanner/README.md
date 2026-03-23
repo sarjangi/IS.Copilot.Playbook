@@ -14,13 +14,56 @@ Automated security scanning for SQL injection vulnerabilities with support for l
 
 ## Installation
 
+### Option 1: Install from Git (Recommended for Developers)
+
+Install directly from Azure DevOps - **no need to clone!**
+
 ```bash
-# Install dependencies
+# Install globally
+pip install git+https://dev.azure.com/Vancity/Vancity/_git/IS.Copilot.Playbook#subdirectory=.github/shared/skills/sql-injection-scanner
+
+# Or install in virtual environment
+python -m venv .venv
+.venv\Scripts\activate  # Windows
+source .venv/bin/activate  # Linux/Mac
+pip install git+https://dev.azure.com/Vancity/Vancity/_git/IS.Copilot.Playbook#subdirectory=.github/shared/skills/sql-injection-scanner
+```
+
+**After installation, use anywhere:**
+```bash
+sql-scanner scan-dir ./src
+sql-scanner scan-repo https://dev.azure.com/Vancity/_git/MyRepo
+sql-scanner scan-file database.py
+```
+
+### Option 2: Use from Source (For Development)
+
+```bash
+# Clone and install dependencies
+git clone https://dev.azure.com/Vancity/Vancity/_git/IS.Copilot.Playbook
+cd IS.Copilot.Playbook/.github/shared/skills/sql-injection-scanner
 pip install -r requirements.txt
 
-# Or use the tools directly (no installation needed)
-cd IS.Copilot.Playbook/.github/shared/skills/sql-injection-scanner
+# Use with python
+python cli.py scan-dir ./src
 ```
+
+### Option 3: Azure DevOps Pipeline (For CI/CD)
+
+Add to your project's `azure-pipelines.yml` - **no installation needed!**
+
+```yaml
+resources:
+  repositories:
+    - repository: playbook
+      type: git
+      name: Vancity/IS.Copilot.Playbook
+
+extends:
+  template: .github/shared/skills/sql-injection-scanner/pipeline-template.yml@playbook
+```
+
+See [CI/CD Integration](#cicd-integration) section for details.
 
 ## Usage
 
@@ -28,27 +71,31 @@ cd IS.Copilot.Playbook/.github/shared/skills/sql-injection-scanner
 
 #### Scan a Single File
 ```bash
+# If installed via pip
+sql-scanner scan-file ./path/to/file.py
+
+# If using from source
 python cli.py scan-file ./path/to/file.py
 ```
 
 #### Scan Directory
 ```bash
-python cli.py scan-dir ./src --recursive
+sql-scanner scan-dir ./src --recursive
 ```
 
 #### Scan Azure DevOps Repository
 ```bash
-python cli.py scan-repo https://dev.azure.com/Vancity/Project/_git/RepoName --branch master
+sql-scanner scan-repo https://dev.azure.com/Vancity/Project/_git/RepoName --branch master
 ```
 
 #### List Repository Branches
 ```bash
-python cli.py list-branches https://dev.azure.com/Vancity/Project/_git/RepoName
+sql-scanner list-branches https://dev.azure.com/Vancity/Project/_git/RepoName
 ```
 
 #### JSON Output
 ```bash
-python cli.py scan-file ./app.py --json
+sql-scanner scan-file ./app.py --json
 ```
 
 ### Import in Python Code
@@ -71,7 +118,37 @@ print(result)
 
 ### Use in CI/CD Pipeline
 
-#### Azure DevOps Pipeline
+#### Option 1: Use Reusable Template (Recommended)
+
+Add this to **any project's azure-pipelines.yml**:
+
+```yaml
+# Reference the Playbook repository
+resources:
+  repositories:
+    - repository: playbook
+      type: git
+      name: Vancity/IS.Copilot.Playbook
+
+# Use the scanner template
+extends:
+  template: .github/shared/skills/sql-injection-scanner/pipeline-template.yml@playbook
+  parameters:
+    scanPath: '$(Build.SourcesDirectory)'
+    failOnFindings: true
+```
+
+**That's it!** The template automatically:
+- ✅ Checks out scanner code from Playbook repo
+- ✅ Installs dependencies
+- ✅ Scans your project
+- ✅ Publishes results as artifacts
+- ✅ Fails build if vulnerabilities found
+
+See [azure-pipelines-example.yml](azure-pipelines-example.yml) for advanced configuration.
+
+#### Option 2: Inline Scanner in Your Pipeline
+
 ```yaml
 trigger:
   - main
@@ -79,15 +156,25 @@ trigger:
 pool:
   vmImage: 'ubuntu-latest'
 
+resources:
+  repositories:
+    - repository: playbook
+      type: git
+      name: Vancity/IS.Copilot.Playbook
+
 steps:
+- checkout: self
+- checkout: playbook
+
 - task: UsePythonVersion@0
   inputs:
     versionSpec: '3.12'
 
 - script: |
-    pip install -r .github/python/skills/sql-injection-scanner/requirements.txt
-    python .github/python/skills/sql-injection-scanner/cli.py scan-dir $(Build.SourcesDirectory)
-  displayName: 'Security Scan'
+    pip install -r $(Build.SourcesDirectory)/IS.Copilot.Playbook/.github/shared/skills/sql-injection-scanner/requirements.txt
+    cd $(Build.SourcesDirectory)/IS.Copilot.Playbook/.github/shared/skills/sql-injection-scanner
+    python cli.py scan-dir $(Build.SourcesDirectory)
+  displayName: 'SQL Injection Security Scan'
 ```
 
 ## Available Tools
@@ -177,6 +264,117 @@ You: "Scan this file for SQL injection"
 Copilot: [Uses SKILL.md knowledge + suggests running tools]
 "Run the scanner: python tools/cli.py scan-file yourfile.py"
 ```
+
+## Testing
+
+The scanner includes a comprehensive automated test suite in `run_tests.py`.
+
+### Run All Tests
+```bash
+python run_tests.py
+```
+
+### Run Tests with Verbose Output
+```bash
+python run_tests.py --verbose
+```
+
+### Run Specific Test
+```bash
+python run_tests.py --test-id 1
+```
+
+### Generate HTML Report
+```bash
+python run_tests.py --report test-report.html
+```
+
+### Test Coverage
+
+The test suite validates:
+
+✅ **Python Vulnerable Code**: Detects string concatenation, f-strings  
+✅ **JavaScript Vulnerable Code**: Detects template literals  
+✅ **C# Vulnerable Code**: Detects string interpolation  
+✅ **Directory Scanning**: Multi-file, multi-language scanning  
+✅ **Safe Code Detection**: Zero false positives on parameterized queries  
+
+### Expected Test Results
+
+```
+🔒 SQL Injection Scanner - Test Runner
+Running 5 test(s)...
+
+✅ Test #1: PASS
+✅ Test #2: PASS
+✅ Test #3: PASS
+✅ Test #4: PASS
+✅ Test #5: PASS
+
+============================================================
+TEST SUMMARY
+============================================================
+Total Tests:   5
+✅ Passed:     5
+❌ Failed:     0
+⚠️  Errors:     0
+Success Rate:  100.0%
+Duration:      1.23s
+============================================================
+```
+
+### CI/CD Integration
+
+#### For Other Projects (Recommended)
+
+Use the **reusable pipeline template** to scan any project without copying code:
+
+**1. Create azure-pipelines.yml in your project:**
+```yaml
+resources:
+  repositories:
+    - repository: playbook
+      type: git
+      name: Vancity/IS.Copilot.Playbook
+
+extends:
+  template: .github/shared/skills/sql-injection-scanner/pipeline-template.yml@playbook
+```
+
+**2. Create pipeline in Azure DevOps:**
+- Navigate to **Pipelines** → **New Pipeline**
+- Select your repository
+- Choose **Existing Azure Pipelines YAML file**
+- Point to your azure-pipelines.yml
+- Run!
+
+**3. Results:**
+- ✅ Automatic scanning on every commit
+- ✅ Build artifacts with JSON results
+- ✅ HTML test reports
+- ✅ Build fails if vulnerabilities found
+
+See [azure-pipelines-example.yml](azure-pipelines-example.yml) for advanced configuration examples.
+
+#### For This Repository (Self-Testing)
+
+The scanner includes `azure-pipelines.yml` for testing itself:
+
+```yaml
+# Tests the scanner code itself
+trigger:
+  - main
+  - develop
+  - feature/*
+
+stages:
+  - Test          # Run test suite (run_tests.py)
+  - Validate      # Validate SKILL.md schema
+  - SecurityScan  # Run Bandit security scan
+  - Package       # Create distributable package
+```
+
+This is for development/testing of the scanner itself, not for scanning other projects.
 
 ## Related Documentation
 
