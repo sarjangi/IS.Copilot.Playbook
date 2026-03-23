@@ -19,7 +19,7 @@ Automated security scanning for SQL injection vulnerabilities with support for l
 pip install -r requirements.txt
 
 # Or use the tools directly (no installation needed)
-cd IS.Copilot.Playbook/.github/python/skills/sql-injection-scanner
+cd IS.Copilot.Playbook/.github/shared/skills/sql-injection-scanner
 ```
 
 ## Usage
@@ -182,6 +182,23 @@ Copilot: [Uses SKILL.md knowledge + suggests running tools]
 
 - [SKILL.md](../../shared/skills/sql-injection-scanner/SKILL.md) - GitHub Copilot skill definition
 - [Shared README](../../shared/skills/sql-injection-scanner/README.md) - General documentation
+
+---
+
+## Troubleshooting
+
+### Authentication Issues
+**Problem**: Repository clone fails with authentication error  
+**Solution**: Use Personal Access Token with `--token YOUR_PAT`
+
+### Performance
+**Problem**: Large repos scan slowly  
+**Solution**: Use file pattern filtering: `--file-patterns "*.py" "*.js"`
+
+### False Positives  
+Review severity ratings: CRITICAL = user input, MEDIUM = needs context review
+
+---
 
 ## License
 

@@ -395,127 +395,14 @@ async def check_repository_access_handler(
 
 
 # ============================================================================
-# Tool Definitions (For Agent Framework) - NOT USED IN STANDALONE VERSION
+# Exported Functions
 # ============================================================================
-# The following FunctionTool definitions are only used when integrated with
-# agent-framework-github-copilot. For standalone CLI usage, use the handler
-# functions directly (scan_repository_handler, etc.)
-
-if False:  # Disabled for standalone usage
-    SCAN_REPOSITORY_TOOL = FunctionTool(
-    name="scan_repository",
-    description="""Clone a Git repository and scan it for SQL injection vulnerabilities.
-
-Supports ALL Git hosting providers:
-- Azure DevOps: https://dev.azure.com/org/project/_git/repo
-- GitHub: https://github.com/owner/repo
-- GitLab: https://gitlab.com/owner/repo
-- Bitbucket: https://bitbucket.org/owner/repo
-- Any Git server with HTTPS access
-
-Authentication:
-- Uses existing Git credentials by default (Windows auth, cached credentials)
-- auth_token is OPTIONAL - only needed if automatic authentication fails
-- Most corporate environments work without explicit tokens
-
-Features:
-- Automatic or token-based authentication
-- Branch/tag/commit selection
-- File pattern filtering
-- Progress tracking
-
-Use this when user asks to scan ANY Git repository URL. 
-Try WITHOUT auth_token first - only use token if authentication fails.""",
-    parameters={
-        "type": "object",
-        "properties": {
-            "repo_url": {
-                "type": "string",
-                "description": "HTTPS Git URL (e.g., https://dev.azure.com/Vancity/_git/MyRepo)"
-            },
-            "branch": {
-                "type": "string",
-                "description": "Branch, tag, or commit to scan (default: 'main')"
-            },
-            "auth_token": {
-                "type": "string",
-                "description": "Personal Access Token for private repos (optional, Azure DevOps PAT or GitHub token)"
-            },
-            "file_patterns": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "List of file patterns to scan (e.g., ['*.py', '*.js'])"
-            },
-            "exclude_patterns": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "List of patterns to exclude (e.g., ['test_*.py'])"
-            },
-            "scan_type": {
-                "type": "string",
-                "enum": ["security", "full"],
-                "description": "Type of scan - 'security' or 'full' (default: 'security')"
-            }
-        },
-        "required": ["repo_url"]
-    },
-    handler=scan_repository_handler
-)
-
-    LIST_BRANCHES_TOOL = FunctionTool(
-    name="list_repository_branches",
-    description="""List all branches in a remote Git repository (Azure DevOps, GitHub, GitLab, etc.).
-
-Works with any Git hosting provider. Useful to see available branches before scanning.
-
-Use this when user asks: 'what branches are in...', 'list branches', 'show branches'.""",
-    parameters={
-        "type": "object",
-        "properties": {
-            "repo_url": {
-                "type": "string",
-                "description": "HTTPS Git URL"
-            },
-            "auth_token": {
-                "type": "string",
-                "description": "Personal Access Token for private repos (optional, Azure DevOps PAT or GitHub token)"
-            }
-        },
-        "required": ["repo_url"]
-    },
-    handler=list_repository_branches_handler
-)
-
-    CHECK_ACCESS_TOOL = FunctionTool(
-    name="check_repository_access",
-    description="""Check if a Git repository (Azure DevOps, GitHub, GitLab, etc.) is accessible.
-
-Verifies:
-- Repository exists
-- Authentication works (if token provided)
-- User has read permissions
-
-Use this to validate access before scanning, especially for private repos.""",
-    parameters={
-        "type": "object",
-        "properties": {
-            "repo_url": {
-                "type": "string",
-                "description": "HTTPS Git URL"
-            },
-            "auth_token": {
-                "type": "string",
-                "description": "Personal Access Token for private repos (optional, Azure DevOps PAT or GitHub token)"
-            }
-        },
-        "required": ["repo_url"]
-    },
-    handler=check_repository_access_handler
-)
-
-# Export all tools
-    ALL_REPOSITORY_TOOLS = [
-    SCAN_REPOSITORY_TOOL,
-    LIST_BRANCHES_TOOL,
-    CHECK_ACCESS_TOOL,
-]
+# This module provides standalone repository scanning functionality.
+# For integration with agent frameworks, use the handler functions directly:
+#   - scan_repository_handler()
+#   - list_repository_branches_handler()
+#   - check_repository_access_handler()
+#
+# These functions support Azure DevOps, GitHub, GitLab, Bitbucket, and any
+# Git server with HTTPS access.
+# ============================================================================

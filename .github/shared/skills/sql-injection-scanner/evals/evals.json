@@ -1,0 +1,66 @@
+{
+  "prompt_name": "sql-injection-scanner",
+  "description": "Test SQL injection vulnerability detection across multiple languages",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Scan this Python file for SQL injection vulnerabilities",
+      "expected_output": "Identifies string concatenation vulnerability, provides parameterized query fix, rates as CRITICAL severity",
+      "files": ["evals/test_files/python_vulnerable.py"],
+      "expectations": [
+        "Detects string concatenation in execute() call",
+        "Reports CRITICAL severity for user input concatenation",
+        "Recommends parameterized query with ? placeholder",
+        "Identifies line number of vulnerability",
+        "Provides secure code example"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Scan this JavaScript file for SQL injection",
+      "expected_output": "Identifies template literal vulnerability in query execution",
+      "files": ["evals/test_files/javascript_vulnerable.js"],
+      "expectations": [
+        "Detects template literal with ${} interpolation",
+        "Reports HIGH severity for unsafe query construction",
+        "Recommends parameterized query with ? placeholders",
+        "Suggests query builder or ORM alternatives"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Scan this C# file for SQL injection",
+      "expected_output": "Identifies string interpolation in SqlCommand",
+      "files": ["evals/test_files/csharp_vulnerable.cs"],
+      "expectations": [
+        "Detects $\"\" string interpolation in SQL",
+        "Reports HIGH severity",
+        "Recommends SqlParameter usage",
+        "Suggests Entity Framework as alternative"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Scan this directory and report all vulnerabilities",
+      "expected_output": "Finds vulnerabilities in all test files, provides summary statistics",
+      "files": ["evals/test_files/"],
+      "expectations": [
+        "Scans multiple file types (py, js, cs)",
+        "Reports total vulnerability count",
+        "Groups findings by severity",
+        "Provides file-by-file breakdown"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Verify this Python file uses safe patterns",
+      "expected_output": "Confirms parameterized queries are used correctly, no vulnerabilities found",
+      "files": ["evals/test_files/python_safe.py"],
+      "expectations": [
+        "Reports 0 vulnerabilities found",
+        "Confirms proper use of parameterized queries",
+        "No false positives for safe code"
+      ]
+    }
+  ]
+}
