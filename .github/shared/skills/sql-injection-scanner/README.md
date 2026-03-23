@@ -1,204 +1,188 @@
-# SQL Injection Scanner Skill
+# SQL Injection Scanner - Python Tools
 
-An autonomous GitHub Copilot skill for detecting SQL injection vulnerabilities across multiple programming languages.
+Automated security scanning for SQL injection vulnerabilities with support for local files, directories, and remote Git repositories (Azure DevOps, GitHub, GitLab, Bitbucket).
 
-## Overview
+## Features
 
-This skill provides comprehensive SQL injection vulnerability scanning with:
-- **Multi-language support**: Python, JavaScript, TypeScript, C#, Java, PHP, SQL
-- **Pattern detection**: 6 regex patterns for unsafe SQL construction
-- **Severity assessment**: CRITICAL, HIGH, MEDIUM risk ratings
-- **Actionable remediation**: Language-specific safe code examples
-- **Automated workflow**: 5-phase autonomous operation
+✅ **File Scanning** - Scan individual Python/JavaScript/SQL files  
+✅ **Directory Scanning** - Recursive scanning of entire codebases  
+✅ **Repository Scanning** - Clone and scan remote Git repositories  
+✅ **Azure DevOps Support** - Works with Windows authentication (no token needed!)  
+✅ **Multi-Platform** - GitHub, GitLab, Bitbucket support  
+✅ **Pattern Detection** - Regex + Bandit static analysis  
+✅ **Detailed Reports** - Line numbers, severity ratings, fix recommendations  
 
-## How to Use
-
-### In GitHub Copilot Chat
-
-1. Open GitHub Copilot Chat in VS Code
-2. Type: `/sql-injection-scanner`
-3. Provide a file path or directory when prompted
-4. Review the generated security report
-
-### Example Usage
-
-```
-User: /sql-injection-scanner
-Agent: I'll scan your code for SQL injection vulnerabilities. What file or directory should I scan?
-User: src/database/
-Agent: Scanning 15 Python files... Found 3 vulnerabilities...
-```
-
-## What It Detects
-
-### Unsafe Patterns
-
-- **String concatenation**: `execute("SELECT * FROM users WHERE id = " + user_id)`
-- **F-strings**: `execute(f"SELECT * FROM {table} WHERE id = {id}")`
-- **%-format**: `execute("SELECT * FROM users WHERE name = '%s'" % name)`
-- **`.format()`**: `execute("SELECT * FROM {} WHERE id = {}".format(table, id))`
-- **Direct variable concatenation**: `query = "SELECT * FROM users WHERE " + condition`
-- **str() concatenation**: `execute("SELECT * FROM users WHERE id = " + str(user_input))`
-
-### Safe Patterns (Will Not Flag)
-
-- **Parameterized queries**: `execute("SELECT * FROM users WHERE id = ?", (user_id,))`
-- **Named parameters**: `execute("SELECT * FROM users WHERE id = :id", {"id": user_id})`
-- **ORM methods**: `User.query.filter(User.id == user_id).first()`
-
-## Report Output
-
-The skill generates detailed reports including:
-
-### Summary Statistics
-- Total files scanned
-- Total vulnerabilities found
-- Severity breakdown (CRITICAL/HIGH/MEDIUM)
-
-### Detailed Findings
-For each vulnerability:
-- File path and line number
-- Vulnerable code snippet
-- Severity with icon (🔴/🟠/🟡)
-- Security risk explanation
-- Concrete fix example
-- OWASP CWE-89 reference
-
-### Remediation Guidance
-- Priority order for fixes
-- Language-specific best practices
-- ORM recommendations
-- Input validation strategies
-
-## Output Formats
-
-- **text** (default): Full detailed report with explanations
-- **summary**: High-level statistics only
-- **json**: Machine-readable format for tool integration
-
-## Supported File Types
-
-- `.py` - Python (with optional Bandit integration)
-- `.js` - JavaScript
-- `.ts` - TypeScript
-- `.sql` - SQL files
-- `.cs` - C#
-- `.java` - Java
-- `.php` - PHP
-
-## Behavioral Features
-
-### Automatic Operations
-- Recursively scans directories
-- Skips excluded directories (`venv`, `node_modules`, `__pycache__`, `.git`)
-- Validates findings to reduce false positives
-- Provides context-aware risk assessment
-
-### Safety Constraints
-- Path validation (rejects `..` directory traversal)
-- File size limits (10MB per file)
-- Timeout protection (30s per file, 5m total)
-- Resource limits (max 10,000 files, 10 levels deep)
-
-### Security Principles
-- Read-only operation (never modifies files)
-- No query execution or exploitation attempts
-- Redacts credentials found in code
-- Privacy-conscious reporting
-
-## Best Practices Enforced
-
-1. ✅ **Always use parameterized queries**
-2. ✅ **Prefer ORMs over raw SQL**
-3. ✅ **Validate all user input**
-4. ✅ **Use allow-lists for dynamic identifiers**
-5. ✅ **Apply least-privilege database accounts**
-6. ❌ **Never trust user input**
-7. ❌ **Don't build SQL with string concatenation**
-
-## Testing
-
-### Validate Installation
+## Installation
 
 ```bash
-# From workspace root
-python tools/skill-creator/scripts/quick_validate.py
+# Install dependencies
+pip install -r requirements.txt
+
+# Or use the tools directly (no installation needed)
+cd IS.Copilot.Playbook/.github/python/skills/sql-injection-scanner
 ```
 
-### Test Cases
+## Usage
 
-1. **Single vulnerable file**: Scan a Python file with known SQL injection
-2. **Clean code**: Scan a file using only parameterized queries (should report 0 issues)
-3. **Mixed directory**: Scan a directory with both vulnerable and safe code
-4. **Unsupported files**: Verify non-SQL files are skipped appropriately
+### Command Line Interface
 
-## Source Implementation
+#### Scan a Single File
+```bash
+python cli.py scan-file ./path/to/file.py
+```
 
-This skill is based on the AIFCoder security agent implementation:
+#### Scan Directory
+```bash
+python cli.py scan-dir ./src --recursive
+```
 
-- **Original Project**: [AIFCoder](https://github.com/sarjangi/AIFCoder)
-- **Implementation**: Python agent using `agent-framework-github-copilot`
-- **Tools**: 4 security scanning tools (scan_file, scan_directory, check_parameterized, generate_report)
-- **Testing**: 15 comprehensive unit tests with 100% detection accuracy
+#### Scan Azure DevOps Repository
+```bash
+python cli.py scan-repo https://dev.azure.com/Vancity/Project/_git/RepoName --branch master
+```
 
-## Limitations
+#### List Repository Branches
+```bash
+python cli.py list-branches https://dev.azure.com/Vancity/Project/_git/RepoName
+```
 
-This skill focuses **exclusively on SQL injection vulnerabilities**. It does not detect:
-- NoSQL injection
-- LDAP injection
-- XML injection
-- Command injection
-- XSS vulnerabilities
-- CSRF issues
-- Authentication/authorization flaws
+#### JSON Output
+```bash
+python cli.py scan-file ./app.py --json
+```
 
-For comprehensive security audits, combine with other tools like:
-- SonarQube
-- Snyk
-- Bandit (Python)
-- ESLint security plugins
-- OWASP ZAP
+### Import in Python Code
 
-## When to Use
+```python
+import asyncio
+from tools import scan_file_handler, scan_repository_handler
 
-✅ **Recommended**:
-- Pre-deployment security checks
-- Code review for database operations
-- Security training and education
-- Establishing security baseline
-- Validating security fixes
+# Scan a file
+result = asyncio.run(scan_file_handler('./database.py'))
+print(result)
 
-❌ **Not Recommended**:
-- Replacing comprehensive security audits
-- Real-time protection (use WAF)
-- Finding all vulnerability types
-- Production monitoring
+# Scan Azure DevOps repo
+result = asyncio.run(scan_repository_handler(
+    'https://dev.azure.com/Vancity/Project/_git/MyRepo',
+    branch='master'
+))
+print(result)
+```
 
-## Contributing
+### Use in CI/CD Pipeline
 
-To improve this skill:
+#### Azure DevOps Pipeline
+```yaml
+trigger:
+  - main
 
-1. **Report false positives**: Help refine detection patterns
-2. **Add language support**: Contribute patterns for additional languages
-3. **Improve remediation**: Suggest better fix examples
-4. **Enhance reporting**: Propose new output formats
+pool:
+  vmImage: 'ubuntu-latest'
 
-See [CONTRIBUTING.md](../../../../CONTRIBUTING.md) for guidelines.
+steps:
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.12'
 
-## References
+- script: |
+    pip install -r .github/python/skills/sql-injection-scanner/requirements.txt
+    python .github/python/skills/sql-injection-scanner/cli.py scan-dir $(Build.SourcesDirectory)
+  displayName: 'Security Scan'
+```
 
-- **OWASP Top 10**: A03:2021 - Injection
-- **CWE-89**: SQL Injection
-- **OWASP SQL Injection Prevention Cheat Sheet**: https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html
-- **Bandit Security Tool**: https://bandit.readthedocs.io/
+## Available Tools
+
+### scan_file_handler(file_path)
+Scan a single source file for SQL injection vulnerabilities.
+
+**Returns:** Dict with findings, severity, line numbers
+
+### scan_directory_handler(directory_path, recursive=True)
+Scan all source files in a directory.
+
+**Returns:** Dict with aggregated findings across all files
+
+### scan_repository_handler(repo_url, branch="main", auth_token=None)
+Clone and scan a Git repository.
+
+**Supports:** Azure DevOps, GitHub, GitLab, Bitbucket
+
+**Returns:** Dict with scan results + repository metadata
+
+### list_repository_branches_handler(repo_url, auth_token=None)
+List all branches in a remote repository.
+
+**Returns:** Dict with list of branch names
+
+### check_repository_access_handler(repo_url, auth_token=None)
+Verify repository access and permissions.
+
+**Returns:** Dict with access status
+
+## Detection Patterns
+
+The scanner detects:
+
+- ❌ String concatenation in SQL queries
+- ❌ f-strings embedding variables in SQL
+- ❌ `.format()` used in SQL construction
+- ❌ `%` formatting in SQL queries
+- ❌ Unparameterized `cursor.execute()` calls
+- ❌ `exec()`, `executemany()`, `executescript()` with dynamic SQL
+- ❌ ORM raw queries with injection risks
+
+✅ Safe patterns:
+- Parameterized queries (`?`, `:param`, `%(name)s`)
+- ORM query builders
+- Prepared statements
+
+## Azure DevOps Authentication
+
+**Windows Users:** Authentication happens automatically using your Windows credentials!
+
+```bash
+# Just run - no token needed
+python cli.py scan-repo https://dev.azure.com/Vancity/_git/MyRepo
+```
+
+**Token (if needed):**
+```bash
+python cli.py scan-repo https://dev.azure.com/Vancity/_git/MyRepo --token YOUR_PAT
+```
+
+## Example Output
+
+```
+Scan Results:
+Files scanned: 47
+Issues found: 3
+
+Findings:
+  [HIGH] database.py:45
+    String concatenation in execute()
+  [MEDIUM] api.py:89
+    f-string used in SQL query
+  [HIGH] auth.py:120
+    Unparameterized cursor.execute()
+```
+
+## Integration with GitHub Copilot
+
+This skill includes [SKILL.md](../../shared/skills/sql-injection-scanner/SKILL.md) that teaches GitHub Copilot about SQL injection patterns.
+
+**In Copilot Chat:**
+```
+You: "Scan this file for SQL injection"
+
+Copilot: [Uses SKILL.md knowledge + suggests running tools]
+"Run the scanner: python tools/cli.py scan-file yourfile.py"
+```
+
+## Related Documentation
+
+- [SKILL.md](../../shared/skills/sql-injection-scanner/SKILL.md) - GitHub Copilot skill definition
+- [Shared README](../../shared/skills/sql-injection-scanner/README.md) - General documentation
 
 ## License
 
-Part of the IS.Copilot.Playbook project. See repository LICENSE file.
-
----
-
-**Version**: 1.0  
-**Created**: March 19, 2026  
-**Maintained by**: Vancity Engineering  
-**Questions?**: Open an issue in the repository
+Internal use only - Vancity Credit Union

@@ -63,7 +63,7 @@ def validate_prompt_file(file_path):
     if not file_path.exists():
         return False, f"File not found: {file_path}"
 
-    content = file_path.read_text()
+    content = file_path.read_text(encoding='utf-8')
     if not content.startswith('---'):
         return False, "No YAML frontmatter found"
 
