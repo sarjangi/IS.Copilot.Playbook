@@ -6,7 +6,7 @@ This folder contains GitHub Copilot customizations specific to Python developmen
 
 ### Skills (Complex Multi-Step Agents)
 
-_No Python-specific skills yet. Check [../shared/skills/](../shared/skills/) for language-agnostic skills._
+_No Python-specific skills yet. Check [../shared/skills/](../shared/skills/) for language-agnostic skills like the SQL injection scanner._
 
 ### Prompts (Slash Commands)
 
