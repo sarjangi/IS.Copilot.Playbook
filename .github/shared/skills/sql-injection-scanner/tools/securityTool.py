@@ -105,8 +105,8 @@ async def scan_file_handler(
                             "recommendation": "Use parameterized queries or SQLAlchemy ORM.",
                             "source": "bandit"
                         })
-            except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError):
-                pass  # bandit not installed or timed out — regex results still returned
+            except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError, PermissionError, OSError):
+                pass  # bandit not installed, timed out, or access denied — regex results still returned
 
         all_findings = findings + bandit_findings
 

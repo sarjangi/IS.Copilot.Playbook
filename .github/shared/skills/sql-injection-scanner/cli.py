@@ -116,7 +116,8 @@ Examples:
                         print("\nFindings:")
                         for finding in result['findings']:
                             print(f"  [{finding.get('severity', 'UNKNOWN')}] {finding.get('file', 'unknown')}:{finding.get('line', '?')}")
-                            print(f"    {finding.get('message', finding.get('pattern', 'No description'))}")
+                            issue_desc = finding.get('issue', finding.get('message', finding.get('pattern', 'No description')))
+                            print(f"    {issue_desc}")
                 elif 'branches' in result:
                     print(f"\nFound {len(result['branches'])} branches:")
                     for branch in result['branches']:
