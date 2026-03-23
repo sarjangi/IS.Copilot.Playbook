@@ -219,7 +219,7 @@ async def scan_repository_handler(
         
         if scan_type == "security":
             # Import here to avoid circular dependency
-            from application.src.tools.securityTool import scan_directory_handler
+            from .securityTool import scan_directory_handler
             
             scan_results = await scan_directory_handler(
                 directory_path=temp_dir,
