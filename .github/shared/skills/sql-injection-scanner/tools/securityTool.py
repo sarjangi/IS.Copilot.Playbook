@@ -91,9 +91,9 @@ async def scan_file_handler(
             try:
                 result = subprocess.run(
                     ['bandit', '-r', file_path, '-t', 'B608', '-f', 'json', '-q'],
-                    capture_output=True, text=True, timeout=30
+                    capture_output=True, text=True, timeout=5, check=False
                 )
-                if result.stdout:
+                if result.returncode == 0 and result.stdout:
                     bandit_output = json.loads(result.stdout)
                     for issue in bandit_output.get('results', []):
                         bandit_findings.append({
@@ -105,7 +105,7 @@ async def scan_file_handler(
                             "recommendation": "Use parameterized queries or SQLAlchemy ORM.",
                             "source": "bandit"
                         })
-            except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError, PermissionError, OSError):
+            except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError, PermissionError, OSError, Exception):
                 pass  # bandit not installed, timed out, or access denied — regex results still returned
 
         all_findings = findings + bandit_findings
