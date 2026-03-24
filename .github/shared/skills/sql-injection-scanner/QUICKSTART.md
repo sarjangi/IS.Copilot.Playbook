@@ -264,7 +264,7 @@ python -m pip show vancity-sql-injection-scanner  # Find install location
 - 📖 Read full [README.md](README.md) for architecture and advanced features
 - 🎓 See [SKILL.md](SKILL.md) for GitHub Copilot integration details
 - 🚀 View [azure-pipelines-example.yml](azure-pipelines-example.yml) for complete pipeline examples
-- 📊 Check [DEPLOYMENT-OPTIONS.md](DEPLOYMENT-OPTIONS.md) for enterprise deployment strategies
+- 📊 Check [DEPLOYMENT-STRATEGY.md](DEPLOYMENT-STRATEGY.md) for enterprise deployment strategies
 
 ---
 

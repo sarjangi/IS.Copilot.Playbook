@@ -1,4 +1,4 @@
-# SQL Injection Scanner Deployment Options
+# SQL Injection Scanner Deployment Strategy
 **For Enterprise-Wide Developer Adoption**
 
 ---
