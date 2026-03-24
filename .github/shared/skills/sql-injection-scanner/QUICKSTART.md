@@ -2,12 +2,14 @@
 
 ## For Developers (Local Development)
 
-### 1. Install Once
+### Option A: Install via Pip (Recommended)
+
+**1. Install Once:**
 ```bash
 pip install git+https://dev.azure.com/Vancity/Vancity/_git/IS.Copilot.Playbook#subdirectory=.github/shared/skills/sql-injection-scanner
 ```
 
-### 2. Scan Your Code
+**2. Scan Your Code:**
 ```bash
 # Scan current directory
 sql-scanner scan-dir .
@@ -20,9 +22,12 @@ sql-scanner scan-file database.py
 
 # Scan remote repo
 sql-scanner scan-repo https://dev.azure.com/Vancity/_git/MyRepo
+
+# Generate HTML report
+sql-scanner scan-dir ./src --html scan-report.html
 ```
 
-### 3. Fix Issues
+**3. Fix Issues:**
 When vulnerabilities are found, you'll see:
 ```
 [HIGH] database.py:45 - String concatenation in execute()
@@ -38,6 +43,57 @@ cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")
 ```python
 cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
 ```
+
+### Option B: Clone Repository (For Development)
+
+**1. Clone playbook:**
+```powershell
+cd C:\repos
+git clone https://dev.azure.com/Vancity/Vancity/_git/IS.Copilot.Playbook
+```
+
+**2. Install dependencies:**
+```powershell
+cd IS.Copilot.Playbook\.github\shared\skills\sql-injection-scanner
+pip install -r requirements.txt
+```
+
+**3. Scan any project:**
+```powershell
+# Scan local directory
+python cli.py scan-dir C:\repos\YourProject\src
+
+# Scan remote Azure DevOps repo
+python cli.py scan-repo https://dev.azure.com/Vancity/Project/_git/Repo
+
+# Generate HTML report
+python cli.py scan-file database.py --html report.html
+```
+
+### Option C: GitHub Copilot Chat Integration
+
+**1. Open multi-root workspace:**
+```json
+// workspace.code-workspace
+{
+  "folders": [
+    {"path": "C:\\repos\\YourProject"},
+    {"path": "C:\\repos\\IS.Copilot.Playbook"}
+  ]
+}
+```
+
+**2. Ask Copilot:**
+```
+@workspace Scan this file for SQL injection vulnerabilities
+
+@workspace Check if this query is safe from SQL injection:
+cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")
+
+@workspace Show me an example of SQL injection in Python
+```
+
+**Result:** Copilot uses the skill knowledge + example files to guide you! 🤖
 
 ---
 
@@ -69,6 +125,36 @@ git push
 4. Save and run
 
 **That's it!** Now every commit gets scanned automatically.
+
+---
+
+## 📊 Method Comparison
+
+| Method | Setup Time | Best For | Automation | AI Integration |
+|--------|-----------|----------|------------|----------------|
+| **Pip Install + CLI** | 1 min | Local scans, Ad-hoc | ❌ Manual | ❌ |
+| **Clone Repository** | 10 min | Development, Testing | ❌ Manual | ❌ |
+| **Copilot Chat** | 15 min | Learning, Real-time guidance | ❌ On-demand | ✅ Yes |
+| **Azure Pipeline** | 5 min | CI/CD, Teams | ✅ Automatic | ❌ |
+
+---
+
+## 🎯 Recommendations by Role
+
+### Security Team
+→ **Azure Pipeline Template** - Enforce scanning across all projects
+
+### DevOps Engineer  
+→ **Azure Pipeline Template** - Integrate into deployment gates
+
+### Developer (Daily Coding)
+→ **Copilot Chat** - Get real-time security guidance while coding
+
+### Developer (Code Review)
+→ **Command Line** - Scan branches before merging
+
+### QA/Testing
+→ **Command Line** - Scan test environments and validate fixes
 
 ---
 
@@ -162,14 +248,23 @@ python -m pip show vancity-sql-injection-scanner  # Find install location
 **Issue:** Too many false positives  
 **Fix:** Review MEDIUM/LOW findings manually - only HIGH/CRITICAL are definite issues
 
+**Issue:** Pipeline fails with "repository not found"  
+**Fix:** Use full format `name: Vancity/IS.Copilot.Playbook` (ProjectName/RepoName) in your YAML
+
+**Issue:** Windows authentication doesn't work  
+**Fix:** Add `--token YOUR_PAT` to CLI commands or configure git credential manager
+
+**Issue:** Copilot doesn't know about SQL injection patterns  
+**Fix:** Make sure IS.Copilot.Playbook is added to your VS Code workspace (not just open folder)
+
 ---
 
 ## Next Steps
 
-- 📖 Read full [README.md](README.md) for advanced usage
-- 🔧 Check [USAGE.md](USAGE.md) for all usage methods
-- 🎓 See [SKILL.md](SKILL.md) for GitHub Copilot integration
-- 🚀 View [azure-pipelines-example.yml](azure-pipelines-example.yml) for pipeline examples
+- 📖 Read full [README.md](README.md) for architecture and advanced features
+- 🎓 See [SKILL.md](SKILL.md) for GitHub Copilot integration details
+- 🚀 View [azure-pipelines-example.yml](azure-pipelines-example.yml) for complete pipeline examples
+- 📊 Check [DEPLOYMENT-OPTIONS.md](DEPLOYMENT-OPTIONS.md) for enterprise deployment strategies
 
 ---
 

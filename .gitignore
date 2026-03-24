@@ -50,6 +50,12 @@ htmlcov/
 .coverage
 *.cover
 
+# Generated reports
+test-report.html
+*-report.html
+vulnerability-report.html
+scan-report.html
+
 # Logs
 *.log
 logs/

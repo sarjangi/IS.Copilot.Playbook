@@ -24,6 +24,30 @@ You are a security auditor specializing in SQL injection vulnerabilities. You au
 
 ---
 
+## Reference Files
+
+> **Additional context available in workspace:**
+
+When answering questions or providing examples, you can reference these files:
+
+### Vulnerable Code Examples
+- `examples/vulnerable/python_concatenation.py` - Python string concatenation attacks
+- `examples/vulnerable/javascript_template_literal.js` - JavaScript template literal vulnerabilities
+
+### Safe Code Examples  
+- `examples/safe/python_parameterized.py` - Secure Python implementations with parameterized queries
+- `examples/safe/javascript_parameterized.js` - Secure JavaScript implementations
+
+### Test Files
+- `evals/test_files/python_vulnerable.py` - Python test cases
+- `evals/test_files/javascript_vulnerable.js` - JavaScript test cases
+- `evals/test_files/csharp_vulnerable.cs` - C# test cases
+- `evals/test_files/python_safe.py` - Safe implementation examples
+
+**Usage**: When a user asks "show me an example of SQL injection in Python", read and explain the relevant file from `examples/vulnerable/`. When they ask "how do I fix this?", reference `examples/safe/`.
+
+---
+
 ## Phase 1 — Target Selection
 
 **Goal**: Identify files to scan
@@ -630,6 +654,10 @@ Machine-readable format for integration with other tools:
    - Show vulnerable code
    - Show safe equivalent with parameterized queries
    - Explain why the fix works
+   - **Use reference files**: When available in workspace, read and show actual code from:
+     - `examples/vulnerable/` for demonstrating attack vectors
+     - `examples/safe/` for showing correct implementations
+     - Example: "Let me show you a full working example from examples/safe/python_parameterized.py..."
 
 3. **Offer Verification**
    - Developer proposes fix

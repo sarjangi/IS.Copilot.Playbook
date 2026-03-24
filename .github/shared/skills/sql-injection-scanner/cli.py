@@ -19,6 +19,7 @@ from tools import (
     list_repository_branches_handler,
     check_repository_access_handler
 )
+from tools.securityTool import generate_html_report_handler
 
 
 async def main():
@@ -47,12 +48,14 @@ Examples:
     scan_file_parser = subparsers.add_parser('scan-file', help='Scan a single file')
     scan_file_parser.add_argument('file_path', help='Path to file to scan')
     scan_file_parser.add_argument('--json', action='store_true', help='Output as JSON')
+    scan_file_parser.add_argument('--html', type=str, metavar='FILE', help='Generate HTML report to FILE')
     
     # Scan directory command
     scan_dir_parser = subparsers.add_parser('scan-dir', help='Scan a directory')
     scan_dir_parser.add_argument('directory', help='Directory to scan')
     scan_dir_parser.add_argument('--recursive', action='store_true', default=True, help='Recursive scan (default)')
     scan_dir_parser.add_argument('--json', action='store_true', help='Output as JSON')
+    scan_dir_parser.add_argument('--html', type=str, metavar='FILE', help='Generate HTML report to FILE')
     
     # Scan repository command
     scan_repo_parser = subparsers.add_parser('scan-repo', help='Scan a Git repository')
@@ -60,6 +63,7 @@ Examples:
     scan_repo_parser.add_argument('--branch', default='main', help='Branch to scan (default: main)')
     scan_repo_parser.add_argument('--token', help='Authentication token for private repos')
     scan_repo_parser.add_argument('--json', action='store_true', help='Output as JSON')
+    scan_repo_parser.add_argument('--html', type=str, metavar='FILE', help='Generate HTML report to FILE')
     
     # List branches command
     list_branches_parser = subparsers.add_parser('list-branches', help='List repository branches')
@@ -99,25 +103,53 @@ Examples:
             result = await check_repository_access_handler(args.repo_url, args.token)
         
         # Output result
-        if args.command in ['scan-file', 'scan-dir', 'scan-repo'] and hasattr(args, 'json') and args.json:
-            print(json.dumps(result, indent=2))
+        if args.command in ['scan-file', 'scan-dir', 'scan-repo']:
+            # Generate HTML report if requested
+            if hasattr(args, 'html') and args.html:
+                findings = result.get('findings', [])
+                scan_path = args.file_path if args.command == 'scan-file' else (
+                    args.directory if args.command == 'scan-dir' else args.repo_url
+                )
+                html_result = await generate_html_report_handler(findings, args.html, scan_path)
+                if html_result.get('success'):
+                    print(f"✅ HTML report generated: {args.html}")
+                    print(f"   Total findings: {html_result.get('total_findings', 0)}")
+                else:
+                    print(f"❌ Failed to generate HTML: {html_result.get('error')}")
+            
+            # Output JSON if requested
+            if hasattr(args, 'json') and args.json:
+                print(json.dumps(result, indent=2))
+            # Otherwise console output
+            elif not (hasattr(args, 'html') and args.html):
+                if isinstance(result, dict):
+                    if 'error' in result:
+                        print(f"❌ Error: {result['error']}")
+                        return 1
+                    elif 'message' in result:
+                        print(result['message'])
+                    elif 'findings' in result:
+                        print(f"\nScan Results:")
+                        print(f"Files scanned: {result.get('files_scanned', 'N/A')}")
+                        print(f"Issues found: {len(result['findings'])}")
+                        if result['findings']:
+                            print("\nFindings:")
+                            for finding in result['findings']:
+                                print(f"  [{finding.get('severity', 'UNKNOWN')}] {finding.get('file', 'unknown')}:{finding.get('line', '?')}")
+                                issue_desc = finding.get('issue', finding.get('message', finding.get('pattern', 'No description')))
+                                print(f"    {issue_desc}")
+                    else:
+                        print(json.dumps(result, indent=2))
+                else:
+                    print(result)
         else:
+            # For non-scan commands
             if isinstance(result, dict):
                 if 'error' in result:
                     print(f"❌ Error: {result['error']}")
                     return 1
                 elif 'message' in result:
                     print(result['message'])
-                elif 'findings' in result:
-                    print(f"\nScan Results:")
-                    print(f"Files scanned: {result.get('files_scanned', 'N/A')}")
-                    print(f"Issues found: {len(result['findings'])}")
-                    if result['findings']:
-                        print("\nFindings:")
-                        for finding in result['findings']:
-                            print(f"  [{finding.get('severity', 'UNKNOWN')}] {finding.get('file', 'unknown')}:{finding.get('line', '?')}")
-                            issue_desc = finding.get('issue', finding.get('message', finding.get('pattern', 'No description')))
-                            print(f"    {issue_desc}")
                 elif 'branches' in result:
                     print(f"\nFound {len(result['branches'])} branches:")
                     for branch in result['branches']:

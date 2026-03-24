@@ -316,6 +316,315 @@ async def generate_report_handler(
         return {"success": False, "error": str(e), "report": ""}
 
 
+async def generate_html_report_handler(
+    findings: List[Dict[str, Any]],
+    output_file: str,
+    scan_path: str = "."
+) -> Dict[str, Any]:
+    """
+    Generate an HTML security report from scan findings.
+    
+    Args:
+        findings: List of vulnerability findings
+        output_file: Path to write HTML report
+        scan_path: Path that was scanned (for display)
+    
+    Returns:
+        Dict with success status and output file path
+    """
+    try:
+        from datetime import datetime
+        
+        total = len(findings)
+        critical = [f for f in findings if f.get('severity') == 'CRITICAL']
+        high = [f for f in findings if f.get('severity') == 'HIGH']
+        medium = [f for f in findings if f.get('severity') == 'MEDIUM']
+        low = [f for f in findings if f.get('severity') == 'LOW']
+        
+        # Group findings by file
+        by_file = {}
+        for f in findings:
+            file_path = f.get('file', 'unknown')
+            if file_path not in by_file:
+                by_file[file_path] = []
+            by_file[file_path].append(f)
+        
+        html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>SQL Injection Security Scan Report</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+            line-height: 1.6;
+        }}
+        .container {{ 
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }}
+        header {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+        }}
+        header h1 {{ font-size: 32px; margin-bottom: 10px; }}
+        header .meta {{ opacity: 0.9; font-size: 14px; }}
+        
+        .summary {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }}
+        .summary-card {{
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #6c757d;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }}
+        .summary-card.total {{ border-left-color: #007bff; }}
+        .summary-card.critical {{ border-left-color: #dc3545; }}
+        .summary-card.high {{ border-left-color: #fd7e14; }}
+        .summary-card.medium {{ border-left-color: #ffc107; }}
+        .summary-card.low {{ border-left-color: #17a2b8; }}
+        .summary-value {{ font-size: 36px; font-weight: bold; color: #333; }}
+        .summary-label {{ font-size: 14px; color: #6c757d; margin-top: 5px; }}
+        
+        .content {{ padding: 30px; }}
+        .file-section {{
+            margin-bottom: 30px;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            overflow: hidden;
+        }}
+        .file-header {{
+            background: #343a40;
+            color: white;
+            padding: 15px 20px;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+        .file-path {{ font-weight: bold; }}
+        .finding-count {{ 
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+        }}
+        
+        .finding {{
+            padding: 20px;
+            border-bottom: 1px solid #e9ecef;
+            background: white;
+        }}
+        .finding:last-child {{ border-bottom: none; }}
+        .finding:hover {{ background: #f8f9fa; }}
+        
+        .finding-header {{
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }}
+        .severity {{
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }}
+        .severity.critical {{ background: #dc3545; color: white; }}
+        .severity.high {{ background: #fd7e14; color: white; }}
+        .severity.medium {{ background: #ffc107; color: #000; }}
+        .severity.low {{ background: #17a2b8; color: white; }}
+        
+        .line-number {{
+            background: #e9ecef;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+            color: #495057;
+        }}
+        
+        .issue-description {{
+            color: #495057;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }}
+        
+        .code-block {{
+            background: #f8f9fa;
+            border-left: 3px solid #dc3545;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            overflow-x: auto;
+        }}
+        .code-block code {{
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            color: #e83e8c;
+            display: block;
+            white-space: pre;
+        }}
+        
+        .recommendation {{
+            background: #d4edda;
+            border-left: 3px solid #28a745;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+        }}
+        .recommendation-title {{
+            font-weight: bold;
+            color: #155724;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        .recommendation-text {{
+            color: #155724;
+            font-size: 14px;
+        }}
+        
+        .no-findings {{
+            text-align: center;
+            padding: 60px 20px;
+            color: #28a745;
+        }}
+        .no-findings-icon {{ font-size: 64px; margin-bottom: 20px; }}
+        .no-findings-text {{ font-size: 24px; font-weight: 500; }}
+        
+        footer {{
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+            border-top: 1px solid #e9ecef;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔒 SQL Injection Security Scan Report</h1>
+            <div class="meta">
+                <div>Scan Path: <strong>{scan_path}</strong></div>
+                <div>Generated: <strong>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</strong></div>
+            </div>
+        </header>
+        
+        <div class="summary">
+            <div class="summary-card total">
+                <div class="summary-value">{total}</div>
+                <div class="summary-label">Total Findings</div>
+            </div>
+            <div class="summary-card critical">
+                <div class="summary-value">{len(critical)}</div>
+                <div class="summary-label">Critical</div>
+            </div>
+            <div class="summary-card high">
+                <div class="summary-value">{len(high)}</div>
+                <div class="summary-label">High</div>
+            </div>
+            <div class="summary-card medium">
+                <div class="summary-value">{len(medium)}</div>
+                <div class="summary-label">Medium</div>
+            </div>
+            <div class="summary-card low">
+                <div class="summary-value">{len(low)}</div>
+                <div class="summary-label">Low</div>
+            </div>
+        </div>
+        
+        <div class="content">
+"""
+        
+        if total == 0:
+            html += """
+            <div class="no-findings">
+                <div class="no-findings-icon">✅</div>
+                <div class="no-findings-text">No SQL Injection Vulnerabilities Found</div>
+                <p style="margin-top: 10px; color: #6c757d;">Your code appears to be using safe parameterized queries.</p>
+            </div>
+"""
+        else:
+            for file_path, file_findings in sorted(by_file.items()):
+                html += f"""
+            <div class="file-section">
+                <div class="file-header">
+                    <span class="file-path">{file_path}</span>
+                    <span class="finding-count">{len(file_findings)} issue{'s' if len(file_findings) != 1 else ''}</span>
+                </div>
+"""
+                for finding in sorted(file_findings, key=lambda x: x.get('line', 0)):
+                    severity = finding.get('severity', 'MEDIUM').lower()
+                    line = finding.get('line', '?')
+                    issue = finding.get('issue', 'SQL injection vulnerability detected')
+                    code = finding.get('code_snippet', '').replace('<', '&lt;').replace('>', '&gt;')
+                    recommendation = finding.get('recommendation', 'Use parameterized queries')
+                    
+                    html += f"""
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity {severity}">{severity}</span>
+                        <span class="line-number">Line {line}</span>
+                    </div>
+                    <div class="issue-description">{issue}</div>
+                    <div class="code-block"><code>{code}</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">{recommendation}</div>
+                    </div>
+                </div>
+"""
+                html += """
+            </div>
+"""
+        
+        html += """
+        </div>
+        
+        <footer>
+            <p>Generated by Vancity SQL Injection Scanner</p>
+            <p style="margin-top: 5px; font-size: 12px;">For more information, see scan documentation</p>
+        </footer>
+    </div>
+</body>
+</html>
+"""
+        
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(html)
+        
+        return {
+            "success": True,
+            "output_file": output_file,
+            "total_findings": total
+        }
+    
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 # ============================================================================
 # Agent Framework Integration
 # ============================================================================
