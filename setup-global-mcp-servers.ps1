@@ -181,6 +181,10 @@ if (-not $settings.PSObject.Properties['chat.mcp.servers']) {
     $settings | Add-Member -MemberType NoteProperty -Name 'chat.mcp.servers' -Value ([PSCustomObject]@{}) -Force
 }
 
+# Get full Python path (not just "python")
+$pythonPath = (Get-Command python).Source.Replace("\", "/")
+Write-Host "   Python executable: $pythonPath" -ForegroundColor Gray
+
 # Build MCP configuration
 $mcpConfig = [PSCustomObject]@{}
 foreach ($server in $mcpServers) {
@@ -190,9 +194,9 @@ foreach ($server in $mcpServers) {
     
     Write-Host "   Configuring: $serverName" -ForegroundColor Gray
     
-    # Add or update server configuration
+    # Add or update server configuration with FULL Python path
     $serverConfig = [PSCustomObject]@{
-        command = "python"
+        command = $pythonPath
         args = @($serverPath)
         env = [PSCustomObject]@{}
     }
