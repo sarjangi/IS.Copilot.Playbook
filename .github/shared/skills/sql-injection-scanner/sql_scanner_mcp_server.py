@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+"""
+SQL Injection Scanner - MCP Server
+Model Context Protocol server for integrating with GitHub Copilot
+"""
+import json
+import sys
+import asyncio
+from pathlib import Path
+
+# Add current directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+
+try:
+    from tools.securityTool import scan_file_handler, scan_directory_handler
+except ImportError:
+    # Fallback if imports fail
+    async def scan_file_handler(file_path):
+        return {"success": False, "error": "Scanner not available"}
+    async def scan_directory_handler(directory, recursive=True):
+        return {"success": False, "error": "Scanner not available"}
+
+
+class SQLScannerMCPServer:
+    """MCP Server for SQL Injection Scanner"""
+    
+    def __init__(self):
+        self.tools = {
+            "scan_file": {
+                "description": "Scan a single file for SQL injection vulnerabilities",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "file_path": {
+                            "type": "string",
+                            "description": "Path to the file to scan"
+                        }
+                    },
+                    "required": ["file_path"]
+                }
+            },
+            "scan_directory": {
+                "description": "Scan a directory recursively for SQL injection vulnerabilities",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "directory": {
+                            "type": "string",
+                            "description": "Path to the directory to scan"
+                        }
+                    },
+                    "required": ["directory"]
+                }
+            }
+        }
+    
+    async def handle_request(self, request):
+        """Handle MCP protocol requests"""
+        method = request.get("method")
+        params = request.get("params", {})
+        request_id = request.get("id")
+        
+        if method == "initialize":
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": {
+                    "name": "sql-injection-scanner",
+                    "version": "1.0.0",
+                    "capabilities": {"tools": True}
+                }
+            }
+        
+        elif method == "tools/list":
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": {"tools": [
+                    {"name": name, **info} 
+                    for name, info in self.tools.items()
+                ]}
+            }
+        
+        elif method == "tools/call":
+            tool_name = params.get("name")
+            arguments = params.get("arguments", {})
+            
+            if tool_name == "scan_file":
+                result = await scan_file_handler(arguments.get("file_path", ""))
+            elif tool_name == "scan_directory":
+                result = await scan_directory_handler(arguments.get("directory", "."))
+            else:
+                result = {"error": f"Unknown tool: {tool_name}"}
+            
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}
+            }
+        
+        else:
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {"code": -32601, "message": f"Method not found: {method}"}
+            }
+    
+    async def run(self):
+        """Main server loop - read from stdin, write to stdout"""
+        while True:
+            try:
+                line = await asyncio.get_event_loop().run_in_executor(
+                    None, sys.stdin.readline
+                )
+                if not line:
+                    break
+                
+                request = json.loads(line)
+                response = await self.handle_request(request)
+                print(json.dumps(response), flush=True)
+                
+            except json.JSONDecodeError:
+                continue
+            except Exception as e:
+                error_response = {
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {"code": -32000, "message": str(e)}
+                }
+                print(json.dumps(error_response), flush=True)
+
+
+async def main():
+    server = SQLScannerMCPServer()
+    await server.run()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+

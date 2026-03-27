@@ -1,0 +1,47 @@
+# Simple PR Automation Pipeline
+# Minimal example - just creates a work item when PR is created
+
+trigger: none
+
+pr:
+  branches:
+    include:
+    - main
+
+pool:
+  vmImage: 'windows-latest'
+
+steps:
+- task: PowerShell@2
+  displayName: 'Create Work Item for PR'
+  env:
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+  inputs:
+    targetType: 'inline'
+    script: |
+      Write-Host "Creating work item for PR $(System.PullRequest.PullRequestId)..." -ForegroundColor Cyan
+      
+      # Setup auth
+      $token = $env:SYSTEM_ACCESSTOKEN
+      $base64 = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$token"))
+      $headers = @{
+          Authorization = "Basic $base64"
+          'Content-Type' = 'application/json-patch+json'
+      }
+      
+      # Get PR title
+      $prUrl = "$(System.TeamFoundationCollectionUri)$(System.TeamProject)/_apis/git/repositories/$(Build.Repository.ID)/pullRequests/$(System.PullRequest.PullRequestId)?api-version=7.0"
+      $pr = Invoke-RestMethod -Uri $prUrl -Headers @{Authorization="Basic $base64"}
+      
+      # Create work item
+      $body = @(
+          @{op='add'; path='/fields/System.Title'; value="Review: $($pr.title)"}
+          @{op='add'; path='/fields/System.Description'; value="PR #$(System.PullRequest.PullRequestId) needs review"}
+          @{op='add'; path='/fields/System.WorkItemType'; value='Task'}
+      ) | ConvertTo-Json -Depth 5
+      
+      $wiUrl = "$(System.TeamFoundationCollectionUri)$(System.TeamProject)/_apis/wit/workitems/`$Task?api-version=7.0"
+      $result = Invoke-RestMethod -Uri $wiUrl -Method POST -Headers $headers -Body $body
+      
+      Write-Host "✓ Work Item Created: #$($result.id)" -ForegroundColor Green
+      Write-Host "View at: https://dev.azure.com/Vancity/Vancity/_workitems/edit/$($result.id)"
