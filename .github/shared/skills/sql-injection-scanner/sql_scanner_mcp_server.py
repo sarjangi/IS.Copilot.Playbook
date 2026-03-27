@@ -105,29 +105,65 @@ class SQLScannerMCPServer:
                 "error": {"code": -32601, "message": f"Method not found: {method}"}
             }
     
+    def read_message(self):
+        """Read LSP-style framed message from stdin"""
+        # Read headers
+        headers = {}
+        while True:
+            line = sys.stdin.buffer.readline()
+            if line == b'\r\n' or line == b'\n':
+                break
+            if b':' in line:
+                key, value = line.decode('utf-8').strip().split(':', 1)
+                headers[key.strip()] = value.strip()
+        
+        # Read content
+        content_length = int(headers.get('Content-Length', 0))
+        if content_length > 0:
+            content = sys.stdin.buffer.read(content_length)
+            return json.loads(content.decode('utf-8'))
+        return None
+    
+    def write_message(self, response):
+        """Write LSP-style framed message to stdout"""
+        content = json.dumps(response).encode('utf-8')
+        message = f"Content-Length: {len(content)}\r\n\r\n".encode('utf-8') + content
+        sys.stdout.buffer.write(message)
+        sys.stdout.buffer.flush()
+    
     async def run(self):
-        """Main server loop - read from stdin, write to stdout"""
+        """Main server loop - read from stdin, write to stdout using LSP framing"""
         while True:
             try:
-                line = await asyncio.get_event_loop().run_in_executor(
-                    None, sys.stdin.readline
+                request = await asyncio.get_event_loop().run_in_executor(
+                    None, self.read_message
                 )
-                if not line:
+                if request is None:
                     break
                 
-                request = json.loads(line)
                 response = await self.handle_request(request)
-                print(json.dumps(response), flush=True)
+                await asyncio.get_event_loop().run_in_executor(
+                    None, self.write_message, response
+                )
                 
-            except json.JSONDecodeError:
-                continue
+            except json.JSONDecodeError as e:
+                error_response = {
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {"code": -32700, "message": f"Parse error: {str(e)}"}
+                }
+                await asyncio.get_event_loop().run_in_executor(
+                    None, self.write_message, error_response
+                )
             except Exception as e:
                 error_response = {
                     "jsonrpc": "2.0",
                     "id": None,
                     "error": {"code": -32000, "message": str(e)}
                 }
-                print(json.dumps(error_response), flush=True)
+                await asyncio.get_event_loop().run_in_executor(
+                    None, self.write_message, error_response
+                )
 
 
 async def main():

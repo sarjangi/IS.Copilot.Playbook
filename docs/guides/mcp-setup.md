@@ -4,7 +4,32 @@ This repository includes Model Context Protocol (MCP) servers that extend GitHub
 
 ## Quick Setup (One Command)
 
-Clone the repo and run the master setup script:
+### Option A: Global Setup (Works Across All Repos) ⭐
+
+Run this **once** from anywhere on your machine:
+
+```powershell
+# Download and run the global setup script
+Invoke-WebRequest -Uri "https://dev.azure.com/Vancity/Vancity/_apis/git/repositories/IS.Copilot.Playbook/items?path=/setup-global-mcp-servers.ps1&download=true&api-version=7.0" -OutFile setup-global-mcp-servers.ps1
+.\setup-global-mcp-servers.ps1
+```
+
+OR if you already have the repo cloned:
+
+```powershell
+cd C:\Users\YourName\source\repos\IS.Copilot.Playbook
+.\setup-global-mcp-servers.ps1
+```
+
+**Benefits:**
+- ✅ Works in ALL your repositories (Isl.Pipelines.Core, IS.Copilot.Playbook, etc.)
+- ✅ Automatically finds Playbook repo on your machine
+- ✅ Configures VS Code User Settings (global)
+- ✅ Run once, use everywhere!
+
+### Option B: Workspace Setup (This Repo Only)
+
+If you only want MCP servers in the Playbook repository:
 
 ```powershell
 git clone <your-repo-url>
@@ -15,7 +40,7 @@ cd IS.Copilot.Playbook
 That's it! The script will:
 - ✅ Automatically discover all MCP servers
 - ✅ Install Python dependencies
-- ✅ Configure VS Code settings
+- ✅ Configure VS Code workspace settings
 - ✅ Enable all tools in GitHub Copilot
 
 ## Available MCP Servers
