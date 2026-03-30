@@ -6,6 +6,7 @@ Model Context Protocol server for integrating with GitHub Copilot
 import json
 import sys
 import asyncio
+import importlib.util
 from pathlib import Path
 
 # Add current directory to path for imports
@@ -14,21 +15,34 @@ sys.path.insert(0, str(Path(__file__).parent))
 try:
     from tools.securityTool import scan_file_handler, scan_directory_handler
 except ImportError:
-    # Fallback if imports fail
-    async def scan_file_handler(file_path):
-        return {"success": False, "error": "Scanner not available"}
-    async def scan_directory_handler(directory, recursive=True):
-        return {"success": False, "error": "Scanner not available"}
+    # Load the local security tool directly so MCP file scans still work even
+    # when optional repository-scan dependencies are not installed.
+    try:
+        security_tool_path = Path(__file__).parent / "tools" / "securityTool.py"
+        spec = importlib.util.spec_from_file_location("sql_scanner_security_tool", security_tool_path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Unable to load module spec for {security_tool_path}")
+        security_tool_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(security_tool_module)
+        scan_file_handler = security_tool_module.scan_file_handler
+        scan_directory_handler = security_tool_module.scan_directory_handler
+    except Exception:
+        async def scan_file_handler(file_path):
+            return {"success": False, "error": "Scanner not available"}
+
+        async def scan_directory_handler(directory, recursive=True):
+            return {"success": False, "error": "Scanner not available"}
 
 
 class SQLScannerMCPServer:
     """MCP Server for SQL Injection Scanner"""
     
     def __init__(self):
+        self.message_mode = "framed"
         self.tools = {
             "scan_file": {
                 "description": "Scan a single file for SQL injection vulnerabilities",
-                "parameters": {
+                "inputSchema": {
                     "type": "object",
                     "properties": {
                         "file_path": {
@@ -41,7 +55,7 @@ class SQLScannerMCPServer:
             },
             "scan_directory": {
                 "description": "Scan a directory recursively for SQL injection vulnerabilities",
-                "parameters": {
+                "inputSchema": {
                     "type": "object",
                     "properties": {
                         "directory": {
@@ -65,10 +79,23 @@ class SQLScannerMCPServer:
                 "jsonrpc": "2.0",
                 "id": request_id,
                 "result": {
-                    "name": "sql-injection-scanner",
-                    "version": "1.0.0",
-                    "capabilities": {"tools": True}
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {"tools": {}},
+                    "serverInfo": {
+                        "name": "sql-injection-scanner",
+                        "version": "1.0.0"
+                    }
                 }
+            }
+        
+        elif method in {"notifications/initialized", "initialized"}:
+            return None
+        
+        elif method == "ping":
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": {}
             }
         
         elif method == "tools/list":
@@ -90,7 +117,14 @@ class SQLScannerMCPServer:
             elif tool_name == "scan_directory":
                 result = await scan_directory_handler(arguments.get("directory", "."))
             else:
-                result = {"error": f"Unknown tool: {tool_name}"}
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": {
+                        "content": [{"type": "text", "text": f"Unknown tool: {tool_name}"}],
+                        "isError": True
+                    }
+                }
             
             return {
                 "jsonrpc": "2.0",
@@ -106,26 +140,44 @@ class SQLScannerMCPServer:
             }
     
     def read_message(self):
-        """Read LSP-style framed message from stdin"""
-        # Read headers
+        """Read either framed (Content-Length) or line-delimited JSON-RPC messages."""
+        first_line = sys.stdin.buffer.readline()
+        if not first_line:
+            return None
+
+        stripped = first_line.strip()
+        if stripped.startswith(b'{') or stripped.startswith(b'['):
+            self.message_mode = "line"
+            return json.loads(stripped.decode('utf-8'))
+
+        # Parse framed transport headers (case-insensitive)
         headers = {}
+        line = first_line
         while True:
-            line = sys.stdin.buffer.readline()
             if line == b'\r\n' or line == b'\n':
                 break
             if b':' in line:
                 key, value = line.decode('utf-8').strip().split(':', 1)
-                headers[key.strip()] = value.strip()
-        
-        # Read content
-        content_length = int(headers.get('Content-Length', 0))
+                headers[key.strip().lower()] = value.strip()
+            line = sys.stdin.buffer.readline()
+            if not line:
+                return None
+
+        content_length = int(headers.get('content-length', 0))
         if content_length > 0:
+            self.message_mode = "framed"
             content = sys.stdin.buffer.read(content_length)
             return json.loads(content.decode('utf-8'))
         return None
     
     def write_message(self, response):
-        """Write LSP-style framed message to stdout"""
+        """Write response using the same mode as the incoming request."""
+        if self.message_mode == "line":
+            line = json.dumps(response) + "\n"
+            sys.stdout.write(line)
+            sys.stdout.flush()
+            return
+
         content = json.dumps(response).encode('utf-8')
         message = f"Content-Length: {len(content)}\r\n\r\n".encode('utf-8') + content
         sys.stdout.buffer.write(message)
@@ -142,9 +194,10 @@ class SQLScannerMCPServer:
                     break
                 
                 response = await self.handle_request(request)
-                await asyncio.get_event_loop().run_in_executor(
-                    None, self.write_message, response
-                )
+                if response is not None:
+                    await asyncio.get_event_loop().run_in_executor(
+                        None, self.write_message, response
+                    )
                 
             except json.JSONDecodeError as e:
                 error_response = {

@@ -143,50 +143,50 @@ if ($installedCount -gt 0) {
 }
 
 # ============================================================================
-# Step 5: Configure VS Code User Settings
+# Step 5: Configure MCP Gateway (global mcp.json)
 # ============================================================================
 
-Write-Host "`nStep 5: Configuring VS Code User Settings..." -ForegroundColor Cyan
+Write-Host "`nStep 5: Configuring MCP Gateway (global mcp.json)..." -ForegroundColor Cyan
 
-$userSettingsPath = "$env:APPDATA\Code\User\settings.json"
+$mcpJsonPath = "$env:APPDATA\Code\User\mcp.json"
+$vscodeUserDir = "$env:APPDATA\Code\User"
 
-if (-not (Test-Path $userSettingsPath)) {
-    Write-Host "[ERROR] VS Code User settings not found at: $userSettingsPath" -ForegroundColor Red
+if (-not (Test-Path $vscodeUserDir)) {
+    Write-Host "[ERROR] VS Code User directory not found at: $vscodeUserDir" -ForegroundColor Red
     Write-Host "Please ensure VS Code is installed" -ForegroundColor Yellow
     exit 1
 }
 
-Write-Host "   Reading: $userSettingsPath" -ForegroundColor Gray
+Write-Host "   MCP config: $mcpJsonPath" -ForegroundColor Gray
 
-# Read existing settings
-try {
-    $settingsContent = [System.IO.File]::ReadAllText($userSettingsPath, [System.Text.UTF8Encoding]::new($false))
-    $settings = $settingsContent | ConvertFrom-Json
-    
-    $propCount = ($settings.PSObject.Properties | Measure-Object).Count
-    Write-Host "   Current properties: $propCount" -ForegroundColor Gray
-    
-    if ($propCount -lt 2) {
-        Write-Host "   [WARN] Settings file appears incomplete (only $propCount properties)" -ForegroundColor Yellow
-        Write-Host "   This might be a previous corruption. Continuing anyway..." -ForegroundColor Yellow
+# Read existing mcp.json or create new one
+$mcpData = $null
+if (Test-Path $mcpJsonPath) {
+    Write-Host "   Reading existing mcp.json..." -ForegroundColor Gray
+    try {
+        $mcpContent = [System.IO.File]::ReadAllText($mcpJsonPath, [System.Text.UTF8Encoding]::new($false))
+        $mcpData = $mcpContent | ConvertFrom-Json
+    } catch {
+        Write-Host "   [WARN] Failed to read existing mcp.json: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "   Creating new configuration..." -ForegroundColor Gray
+        $mcpData = [PSCustomObject]@{}
     }
-} catch {
-    Write-Host "[ERROR] Failed to read settings: $($_.Exception.Message)" -ForegroundColor Red
-    exit 1
+} else {
+    Write-Host "   Creating new mcp.json..." -ForegroundColor Gray
+    $mcpData = [PSCustomObject]@{}
 }
 
-# Initialize MCP servers object if it doesn't exist
-if (-not $settings.PSObject.Properties['chat.mcp.servers']) {
-    Write-Host "   Creating chat.mcp.servers property..." -ForegroundColor Gray
-    $settings | Add-Member -MemberType NoteProperty -Name 'chat.mcp.servers' -Value ([PSCustomObject]@{}) -Force
+# Initialize servers object if it doesn't exist
+if (-not $mcpData.PSObject.Properties['servers']) {
+    Write-Host "   Creating servers property..." -ForegroundColor Gray
+    $mcpData | Add-Member -MemberType NoteProperty -Name 'servers' -Value ([PSCustomObject]@{}) -Force
 }
 
 # Get full Python path (not just "python")
 $pythonPath = (Get-Command python).Source.Replace("\", "/")
 Write-Host "   Python executable: $pythonPath" -ForegroundColor Gray
 
-# Build MCP configuration
-$mcpConfig = [PSCustomObject]@{}
+# Build server configurations
 foreach ($server in $mcpServers) {
     # Use forward slashes for cross-platform compatibility
     $serverPath = $server.FullName.Replace("\", "/")
@@ -201,49 +201,37 @@ foreach ($server in $mcpServers) {
         env = [PSCustomObject]@{}
     }
     
-    $mcpConfig | Add-Member -MemberType NoteProperty -Name $serverName -Value $serverConfig -Force
+    $mcpData.servers | Add-Member -MemberType NoteProperty -Name $serverName -Value $serverConfig -Force
 }
 
-# Replace the entire MCP servers configuration
-$settings.'chat.mcp.servers' = $mcpConfig
+# Backup existing mcp.json if it exists
+if (Test-Path $mcpJsonPath) {
+    $backupPath = "$mcpJsonPath.backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+    Copy-Item $mcpJsonPath $backupPath
+    Write-Host "   Backup created: $(Split-Path $backupPath -Leaf)" -ForegroundColor DarkGray
+}
 
-# Backup existing settings
-$backupPath = "$userSettingsPath.backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-Copy-Item $userSettingsPath $backupPath
-Write-Host "   Backup created: $(Split-Path $backupPath -Leaf)" -ForegroundColor DarkGray
-
-# Write updated settings
+# Write updated mcp.json
 try {
-    # Use proper JSON serialization with compression to preserve formatting
-    $jsonOutput = $settings | ConvertTo-Json -Depth 20 -Compress:$false
-    [System.IO.File]::WriteAllText($userSettingsPath, $jsonOutput, [System.Text.UTF8Encoding]::new($false))
-    Write-Host "[OK] Updated VS Code User Settings" -ForegroundColor Green
+    # Use proper JSON serialization
+    $jsonOutput = $mcpData | ConvertTo-Json -Depth 20 -Compress:$false
+    [System.IO.File]::WriteAllText($mcpJsonPath, $jsonOutput, [System.Text.UTF8Encoding]::new($false))
+    Write-Host "[OK] Updated global mcp.json" -ForegroundColor Green
     
     # Verify
-    $verification = [System.IO.File]::ReadAllText($userSettingsPath) | ConvertFrom-Json
-    $verifyPropCount = ($verification.PSObject.Properties | Measure-Object).Count
+    $verification = [System.IO.File]::ReadAllText($mcpJsonPath) | ConvertFrom-Json
     
-    Write-Host "[OK] Verified: $verifyPropCount properties in settings file" -ForegroundColor Green
-    
-    if ($verification.'chat.mcp.servers') {
-        Write-Host "[OK] Verified: MCP configuration exists" -ForegroundColor Green
-        
-        $serverCount = ($verification.'chat.mcp.servers' | Get-Member -MemberType NoteProperty).Count
-        Write-Host "[OK] Configured $serverCount MCP server(s)" -ForegroundColor Green
+    if ($verification.servers) {
+        $serverCount = ($verification.servers | Get-Member -MemberType NoteProperty).Count
+        Write-Host "[OK] Verified: $serverCount MCP server(s) configured" -ForegroundColor Green
     } else {
-        Write-Host "[WARN] Verification failed - MCP configuration not found after write" -ForegroundColor Yellow
-    }
-    
-    # Check if properties were lost
-    if ($verifyPropCount -lt $propCount) {
-        Write-Host "[ERROR] Settings corruption detected! Lost $($propCount - $verifyPropCount) properties" -ForegroundColor Red
-        Write-Host "Restoring from backup: $backupPath" -ForegroundColor Yellow
-        Copy-Item $backupPath $userSettingsPath -Force
-        exit 1
+        Write-Host "[WARN] Verification failed - servers property not found after write" -ForegroundColor Yellow
     }
 } catch {
-    Write-Host "[ERROR] Failed to write settings: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host "Backup preserved at: $backupPath" -ForegroundColor Yellow
+    Write-Host "[ERROR] Failed to write mcp.json: $($_.Exception.Message)" -ForegroundColor Red
+    if (Test-Path $backupPath) {
+        Write-Host "Backup preserved at: $backupPath" -ForegroundColor Yellow
+    }
     exit 1
 }
 
@@ -264,8 +252,8 @@ Write-Host "`nThese servers are now available in ALL your VS Code workspaces!" -
 
 Write-Host "`nNext steps:" -ForegroundColor Yellow
 Write-Host "   1. Reload VS Code: Ctrl+Shift+P -> 'Developer: Reload Window'" -ForegroundColor White
-Write-Host "   2. Verify setup: Ctrl+Shift+P -> 'GitHub Copilot: Show MCP Servers'" -ForegroundColor White
-Write-Host "   3. Navigate to any repository (e.g., Isl.Pipelines.Core)" -ForegroundColor White
+Write-Host "   2. Verify setup: Ctrl+Shift+P -> 'MCP: list'" -ForegroundColor White
+Write-Host "   3. Check Output: Ctrl+Shift+U -> Select 'MCP Gateway'" -ForegroundColor White
 Write-Host "   4. Test in Copilot Chat: 'Scan this file for SQL injection vulnerabilities'" -ForegroundColor White
 
 Write-Host "`nTip: When you pull updates to IS.Copilot.Playbook, run this script" -ForegroundColor Cyan
