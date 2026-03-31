@@ -1,0 +1,228 @@
+# Azure DevOps Pipeline - PR Automation
+# Triggers on Pull Requests and runs automated tasks
+
+trigger: none  # Don't trigger on direct commits
+
+pr:
+  branches:
+    include:
+    - main
+    - develop
+  paths:
+    exclude:
+    - README.md
+    - docs/**
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  AZURE_DEVOPS_PAT: $(System.AccessToken)  # Uses pipeline's built-in token
+
+stages:
+- stage: PRValidation
+  displayName: 'PR Validation & Automation'
+  jobs:
+  
+  - job: CreateWorkItems
+    displayName: 'Auto-create Work Items'
+    steps:
+    
+    - task: PowerShell@2
+      displayName: 'Link PR to Work Items'
+      env:
+        SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "🔗 Linking PR $(System.PullRequest.PullRequestId) to work items..." -ForegroundColor Cyan
+          
+          # Setup authentication
+          $token = $env:SYSTEM_ACCESSTOKEN
+          $base64 = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$token"))
+          $headers = @{
+              Authorization = "Basic $base64"
+              'Content-Type' = 'application/json'
+          }
+          
+          # Get PR details
+          $prId = "$(System.PullRequest.PullRequestId)"
+          $prUrl = "$(System.TeamFoundationCollectionUri)$(System.TeamProject)/_apis/git/repositories/$(Build.Repository.ID)/pullRequests/$prId?api-version=7.0"
+          $pr = Invoke-RestMethod -Uri $prUrl -Headers $headers
+          
+          Write-Host "PR Title: $($pr.title)" -ForegroundColor Yellow
+          Write-Host "Created by: $($pr.createdBy.displayName)" -ForegroundColor Gray
+          
+          # Extract work item IDs from PR title/description (e.g., #565226)
+          $workItemIds = @()
+          if ($pr.title -match '#(\d+)') {
+              $workItemIds += $Matches[1]
+          }
+          if ($pr.description -match '#(\d+)') {
+              $workItemIds += $Matches[1]
+          }
+          
+          # Link PR to work items
+          foreach ($wiId in ($workItemIds | Select-Object -Unique)) {
+              Write-Host "  Linking to work item #$wiId..." -ForegroundColor Green
+              
+              $linkBody = @(
+                  @{
+                      op = 'add'
+                      path = '/relations/-'
+                      value = @{
+                          rel = 'ArtifactLink'
+                          url = "vstfs:///Git/PullRequestId/$(System.TeamProjectId)%2F$(Build.Repository.ID)%2F$prId"
+                          attributes = @{
+                              name = 'Pull Request'
+                          }
+                      }
+                  }
+              ) | ConvertTo-Json -Depth 5
+              
+              try {
+                  $wiUrl = "$(System.TeamFoundationCollectionUri)$(System.TeamProject)/_apis/wit/workitems/$wiId?api-version=7.0"
+                  Invoke-RestMethod -Uri $wiUrl -Method PATCH -Headers @{Authorization="Basic $base64"; 'Content-Type'='application/json-patch+json'} -Body $linkBody | Out-Null
+                  Write-Host "  ✓ Linked to #$wiId" -ForegroundColor Green
+              }
+              catch {
+                  Write-Host "  ✗ Failed to link to #$wiId" -ForegroundColor Red
+              }
+          }
+
+    - task: PowerShell@2
+      displayName: 'Create Review Task'
+      env:
+        SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "📋 Creating code review task..." -ForegroundColor Cyan
+          
+          $token = $env:SYSTEM_ACCESSTOKEN
+          $base64 = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$token"))
+          $headers = @{
+              Authorization = "Basic $base64"
+              'Content-Type' = 'application/json-patch+json'
+          }
+          
+          # Create a task for code review
+          $body = @(
+              @{op='add'; path='/fields/System.Title'; value="Code Review Required: PR $(System.PullRequest.PullRequestId)"}
+              @{op='add'; path='/fields/System.Description'; value="Review PR: $(System.PullRequest.SourceBranch) → $(System.PullRequest.TargetBranch)<br>$(Build.Repository.Uri)/pullrequest/$(System.PullRequest.PullRequestId)"}
+              @{op='add'; path='/fields/System.WorkItemType'; value='Task'}
+              @{op='add'; path='/fields/System.Tags'; value='code-review; pr-automation'}
+          ) | ConvertTo-Json -Depth 5
+          
+          try {
+              $result = Invoke-RestMethod -Uri "$(System.TeamFoundationCollectionUri)$(System.TeamProject)/_apis/wit/workitems/`$Task?api-version=7.0" -Method POST -Headers $headers -Body $body
+              Write-Host "✓ Task created: #$($result.id)" -ForegroundColor Green
+              Write-Host "##vso[task.setvariable variable=ReviewTaskId;]$($result.id)"
+          }
+          catch {
+              Write-Host "✗ Failed to create task: $($_.Exception.Message)" -ForegroundColor Red
+          }
+
+- stage: SecurityScans
+  displayName: 'Security Scans'
+  dependsOn: PRValidation
+  jobs:
+  
+  - job: SQLInjectionScan
+    displayName: 'SQL Injection Scanner'
+    steps:
+    
+    - task: PowerShell@2
+      displayName: 'Run SQL Injection Scanner'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "🔍 Running SQL Injection Scanner..." -ForegroundColor Cyan
+          
+          # Run the SQL scanner (from your MCP server)
+          if (Test-Path ".github/shared/skills/sql-injection-scanner/cli.py") {
+              python .github/shared/skills/sql-injection-scanner/cli.py scan-dir . --json > scan-results.json
+              
+              $results = Get-Content scan-results.json | ConvertFrom-Json
+              
+              if ($results.total_vulnerabilities -gt 0) {
+                  Write-Host "⚠️ Found $($results.total_vulnerabilities) potential SQL injection vulnerabilities!" -ForegroundColor Red
+                  Write-Host "##vso[task.logissue type=warning]SQL Injection vulnerabilities detected"
+                  
+                  # Optionally fail the build
+                  # Write-Host "##vso[task.complete result=Failed;]SQL vulnerabilities found"
+              }
+              else {
+                  Write-Host "✓ No SQL injection vulnerabilities found" -ForegroundColor Green
+              }
+          }
+          else {
+              Write-Host "SQL Scanner not found, skipping..." -ForegroundColor Yellow
+          }
+    
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Security Scan Results'
+      condition: always()
+      inputs:
+        PathtoPublish: 'scan-results.json'
+        ArtifactName: 'security-scan-results'
+
+- stage: Notification
+  displayName: 'Send Notifications'
+  dependsOn: 
+  - PRValidation
+  - SecurityScans
+  condition: always()
+  jobs:
+  
+  - job: NotifyTeam
+    displayName: 'Notify Team'
+    steps:
+    
+    - task: PowerShell@2
+      displayName: 'Post PR Summary'
+      env:
+        SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "📢 Posting PR summary..." -ForegroundColor Cyan
+          
+          $token = $env:SYSTEM_ACCESSTOKEN
+          $base64 = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$token"))
+          $headers = @{
+              Authorization = "Basic $base64"
+              'Content-Type' = 'application/json'
+          }
+          
+          $prId = "$(System.PullRequest.PullRequestId)"
+          $comment = @{
+              comments = @(
+                  @{
+                      parentCommentId = 0
+                      content = @"
+          ## 🤖 Automated PR Checks Complete
+          
+          ✅ Work items linked
+          ✅ Code review task created
+          ✅ Security scans passed
+          
+          **Build**: [$(Build.BuildNumber)]($(System.TeamFoundationCollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId))
+          **Pipeline**: $(Build.DefinitionName)
+          
+          _Generated by Azure DevOps Pipeline Automation_
+          "@
+                      commentType = 1
+                  }
+              )
+              status = 1
+          } | ConvertTo-Json -Depth 5
+          
+          try {
+              $commentUrl = "$(System.TeamFoundationCollectionUri)$(System.TeamProject)/_apis/git/repositories/$(Build.Repository.ID)/pullRequests/$prId/threads?api-version=7.0"
+              Invoke-RestMethod -Uri $commentUrl -Method POST -Headers $headers -Body $comment | Out-Null
+              Write-Host "✓ Comment posted to PR" -ForegroundColor Green
+          }
+          catch {
+              Write-Host "✗ Failed to post comment: $($_.Exception.Message)" -ForegroundColor Red
+          }

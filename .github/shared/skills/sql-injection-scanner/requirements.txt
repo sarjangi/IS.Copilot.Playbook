@@ -1,0 +1,13 @@
+# SQL Injection Scanner Dependencies
+
+# Security scanning
+bandit>=1.7.0
+
+# Repository operations
+gitpython>=3.1.40
+
+# Async file operations
+aiofiles>=23.2.0
+
+# HTTP requests
+requests>=2.31.0
