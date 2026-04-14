@@ -22,7 +22,7 @@ cd C:\Users\YourName\source\repos\IS.Copilot.Playbook
 ```
 
 **Benefits:**
-- ✅ Works in ALL your repositories (Isl.Pipelines.Core, IS.Copilot.Playbook, etc.)
+- ✅ Works in all your repositories (Isl.Pipelines.Core, IS.Copilot.Playbook, etc.)
 - ✅ Automatically finds Playbook repo on your machine
 - ✅ Configures VS Code User Settings (global)
 - ✅ Run once, use everywhere!
@@ -45,12 +45,21 @@ That's it! The script will:
 
 ## Available MCP Servers
 
-### SQL Injection Scanner
-**Location:** `.github/shared/skills/sql-injection-scanner/`
+### Integration Platform
+**Location:** `.github/shared/skills/integration-platform/`
 
-**Tools provided:**
-- `scan_file` - Scan a single file for SQL injection vulnerabilities
-- `scan_directory` - Recursively scan a directory
+**Module tools provided:**
+- `sql_scanner` - SQL scanning and report generation module tool (uses `action` routing)
+- `repo_analyzer` - Repository scanning and access module tool (uses `action` routing)
+- `scan_security` - Security vulnerability scanning module tool (uses `action` routing)
+- `test_generator` - Ecosystem-aware test generation module tool (C# and Python)
+
+**Common `sql_scanner` actions:**
+- `scan_sql_injection_file`
+- `scan_sql_injection_directory`
+- `check_parameterized_query`
+- `generate_scan_report`
+- `generate_html_report`
 
 **Usage in Copilot Chat:**
 ```
@@ -62,17 +71,20 @@ Scan this file for SQL injection vulnerabilities
 If you need to set up individual servers:
 
 ```powershell
-# Navigate to a specific MCP server directory
-cd .github/shared/skills/sql-injection-scanner
+# Navigate to the Integration Platform MCP server directory
+cd .github/shared/skills/integration-platform
 
-# Run its setup script
-.\setup-mcp-server.ps1
+# Install dependencies
+pip install -r requirements.txt
+
+# Run MCP server directly (for diagnostics)
+python integration_platform_mcp_server.py
 ```
 
 ## Team Distribution
 
-See individual MCP server folders for detailed distribution guides:
-- [SQL Injection Scanner Distribution](.github/shared/skills/sql-injection-scanner/MCP-DISTRIBUTION-GUIDE.md)
+See individual MCP server folders for detailed usage guides:
+- [Integration Platform README](.github/shared/skills/integration-platform/README.md)
 
 ## Troubleshooting
 
@@ -80,7 +92,9 @@ See individual MCP server folders for detailed distribution guides:
 
 1. Reload VS Code: `Ctrl+Shift+P` → "Developer: Reload Window"
 2. Verify configuration: `Ctrl+Shift+P` → "GitHub Copilot: Show MCP Servers"
-3. Check settings file: `.vscode/settings.json` should contain `github.copilot.chat.mcp.servers`
+3. Check configuration files:
+	- Global setup: `%APPDATA%\Code\User\mcp.json` (or `settings.json` under `chat.mcp.servers`)
+	- Workspace setup: `.vscode/settings.json` under `github.copilot.chat.mcp.servers`
 
 ### Python errors
 

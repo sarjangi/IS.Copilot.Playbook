@@ -1,5 +1,5 @@
 {
-  "prompt_name": "sql-injection-scanner",
+  "prompt_name": "integration-platform",
   "description": "Test SQL injection vulnerability detection across multiple languages",
   "evals": [
     {

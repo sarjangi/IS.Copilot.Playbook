@@ -1,0 +1,20 @@
+# Integration Platform MCP Server Dependencies
+
+# Core Python requirements (built-in modules used)
+# - ast
+# - json
+# - logging
+# - sys
+# - os
+# - re
+# - datetime
+# - pathlib
+# - typing
+
+# Active dependencies (required)
+mcp[cli]>=1.0.0    # MCP server framework (required for VS Code tool integration)
+GitPython>=3.1.40  # For repository cloning and analysis
+
+# Future dependencies (to be added as features are implemented)
+# pylint>=2.17.0  # For code quality analysis  
+# radon>=5.1.0   # For complexity analysis

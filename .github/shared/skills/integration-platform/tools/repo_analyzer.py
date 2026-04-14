@@ -1,6 +1,6 @@
 """
-Repository Tools - Git repository cloning and scanning tools
-Standalone version with authentication, branch selection, file filtering, and progress tracking
+Repository Analyzer - Git repository cloning and scanning tools
+MCP tool handlers for repository analysis and security scanning
 """
 
 from typing import Dict, Any, List, Optional, Callable
@@ -8,9 +8,26 @@ import os
 import tempfile
 import shutil
 from pathlib import Path
-from git import Repo, GitCommandError
 from urllib.parse import urlparse
 import re
+import logging
+
+# Try to import GitPython - make it optional for graceful degradation
+try:
+    from git import Repo, GitCommandError
+    GIT_AVAILABLE = True
+except ImportError:
+    GIT_AVAILABLE = False
+    # Provide dummy classes if git is not available
+    class Repo:
+        pass
+    class GitCommandError(Exception):
+        pass
+
+# Disable logging to avoid interfering with MCP stdio protocol
+logging.disable(logging.CRITICAL)
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -111,39 +128,47 @@ def _filter_files(
 
 
 # ============================================================================
-# Tool Handlers
+# MCP Tool Handlers
 # ============================================================================
 
-async def scan_repository_handler(
-    repo_url: str,
-    branch: str = "main",
-    auth_token: Optional[str] = None,
-    file_patterns: Optional[List[str]] = None,
-    exclude_patterns: Optional[List[str]] = None,
-    scan_type: str = "security",
-    progress_callback: Optional[Callable[[str, int], None]] = None
-) -> Dict[str, Any]:
+def scan_repository(args: Dict[str, Any]) -> Dict[str, Any]:
     """
     Clone a Git repository and scan it for security vulnerabilities.
     
-    Args:
+    MCP Tool Handler - expects args dictionary with:
         repo_url: HTTPS Git URL (e.g., https://dev.azure.com/Vancity/_git/MyRepo)
         branch: Branch, tag, or commit to scan (default: "main")
-        auth_token: Personal Access Token for private repos (optional, works with Azure DevOps, GitHub, etc.)
+        auth_token: Personal Access Token for private repos (optional)
         file_patterns: List of file patterns to scan (default: ['.py', '.js', '.ts', etc.])
         exclude_patterns: List of patterns to exclude (default: None)
         scan_type: Type of scan - 'security' or 'full' (default: 'security')
-        progress_callback: Callback function(message: str, percent: int) for progress updates
     
     Returns:
         Dictionary with scan results, statistics, and findings
     """
-    temp_dir = None
+    # Check if GitPython is available
+    if not GIT_AVAILABLE:
+        return {
+            "success": False,
+            "error": "GitPython is not installed. Run: pip install GitPython>=3.1.40",
+            "message": "Repository scanning requires GitPython library"
+        }
     
-    def report_progress(message: str, percent: int):
-        """Helper to report progress if callback provided"""
-        if progress_callback:
-            progress_callback(message, percent)
+    # Extract arguments
+    repo_url = args.get("repo_url")
+    branch = args.get("branch", "main")
+    auth_token = args.get("auth_token")
+    file_patterns = args.get("file_patterns")
+    exclude_patterns = args.get("exclude_patterns")
+    scan_type = args.get("scan_type", "security")
+    
+    if not repo_url:
+        return {
+            "success": False,
+            "error": "repo_url is required"
+        }
+    
+    temp_dir = None
     
     try:
         # Parse repository URL
@@ -155,20 +180,20 @@ async def scan_repository_handler(
                 "repository": repo_url
             }
         
-        report_progress(f"Preparing to clone {repo_info['owner']}/{repo_info['repo']}...", 5)
+        logger.info(f"Preparing to clone {repo_info['owner']}/{repo_info['repo']}...")
         
         # Create temporary directory
-        temp_dir = tempfile.mkdtemp(prefix=f"aifcoder_scan_{repo_info['repo']}_")
-        report_progress(f"Created temporary directory: {temp_dir}", 10)
+        temp_dir = tempfile.mkdtemp(prefix=f"integration_platform_scan_{repo_info['repo']}_")
+        logger.info(f"Created temporary directory: {temp_dir}")
         
         # Prepare clone URL with authentication if provided
         clone_url = repo_url
         if auth_token and repo_url.startswith('http'):
             clone_url = _inject_auth_token(repo_url, auth_token)
-            report_progress("Authentication token injected", 15)
+            logger.info("Authentication token injected")
         
         # Clone repository
-        report_progress(f"Cloning repository from {branch} branch...", 20)
+        logger.info(f"Cloning repository from {branch} branch...")
         try:
             repo = Repo.clone_from(
                 clone_url,
@@ -177,7 +202,7 @@ async def scan_repository_handler(
                 depth=1,  # Shallow clone for speed
                 single_branch=True  # Only fetch specified branch
             )
-            report_progress(f"Successfully cloned repository", 40)
+            logger.info("Successfully cloned repository")
         except GitCommandError as e:
             error_msg = str(e)
             # Don't expose token in error message
@@ -191,7 +216,7 @@ async def scan_repository_handler(
             }
         
         # Get repository statistics
-        report_progress("Analyzing repository structure...", 50)
+        logger.info("Analyzing repository structure...")
         commit_info = {
             "sha": repo.head.commit.hexsha[:8],
             "message": repo.head.commit.message.strip(),
@@ -200,9 +225,9 @@ async def scan_repository_handler(
         }
         
         # Filter files based on patterns
-        report_progress("Finding files to scan...", 55)
+        logger.info("Finding files to scan...")
         files_to_scan = _filter_files(temp_dir, file_patterns, exclude_patterns)
-        report_progress(f"Found {len(files_to_scan)} files to scan", 60)
+        logger.info(f"Found {len(files_to_scan)} files to scan")
         
         if not files_to_scan:
             return {
@@ -216,29 +241,29 @@ async def scan_repository_handler(
             }
         
         # Perform security scan using existing security tools
-        report_progress("Scanning for security vulnerabilities...", 65)
+        logger.info("Scanning for security vulnerabilities...")
         
         if scan_type == "security":
-            # Import here to avoid circular dependency
-            from .securityTool import scan_directory_handler
+            # Import SQL scanner
+            from .sql_scanner import scan_sql_injection_directory
             
-            scan_results = await scan_directory_handler(
-                directory_path=temp_dir,
-                recursive=True
-            )
+            scan_results = scan_sql_injection_directory({
+                "directory_path": temp_dir,
+                "recursive": True
+            })
             
             # Filter results to only include files we want
             if scan_results.get('success'):
                 all_findings = scan_results.get('findings', [])
                 filtered_findings = [
                     f for f in all_findings 
-                   if any(f.get('file', '').endswith(os.path.basename(scan_file)) 
-                          for scan_file in files_to_scan)
+                    if any(f.get('file', '').endswith(os.path.basename(scan_file)) 
+                           for scan_file in files_to_scan)
                 ]
                 scan_results['findings'] = filtered_findings
                 scan_results['total_vulnerabilities'] = len(filtered_findings)
             
-            report_progress("Scan completed", 95)
+            logger.info("Scan completed")
             
             return {
                 "success": True,
@@ -253,14 +278,14 @@ async def scan_repository_handler(
                 "scan_summary": scan_results.get('summary', '')
             }
         
-        else:  # full scan - just file enumeration for now
-            report_progress("Analyzing file structure...", 90)
+        else:  # full scan - file enumeration
+            logger.info("Analyzing file structure...")
             file_stats = {}
             for file_path in files_to_scan:
                 ext = os.path.splitext(file_path)[1]
                 file_stats[ext] = file_stats.get(ext, 0) + 1
             
-            report_progress("Analysis completed", 100)
+            logger.info("Analysis completed")
             
             return {
                 "success": True,
@@ -279,6 +304,8 @@ async def scan_repository_handler(
         if auth_token:
             error_msg = error_msg.replace(auth_token, '***')
         
+        logger.error(f"Repository scan failed: {error_msg}")
+        
         return {
             "success": False,
             "error": error_msg,
@@ -290,28 +317,39 @@ async def scan_repository_handler(
         # Cleanup temporary directory
         if temp_dir and os.path.exists(temp_dir):
             try:
-                report_progress("Cleaning up temporary files...", 98)
+                logger.info("Cleaning up temporary files...")
                 shutil.rmtree(temp_dir, ignore_errors=True)
-                report_progress("Cleanup completed", 100)
+                logger.info("Cleanup completed")
             except Exception as cleanup_error:
-                # Log but don't fail the operation
-                print(f"Warning: Failed to cleanup temp directory: {cleanup_error}")
+                logger.warning(f"Failed to cleanup temp directory: {cleanup_error}")
 
 
-async def list_repository_branches_handler(
-    repo_url: str,
-    auth_token: Optional[str] = None
-) -> Dict[str, Any]:
+def list_repository_branches(args: Dict[str, Any]) -> Dict[str, Any]:
     """
     List all branches in a remote Git repository.
     
-    Args:
+    MCP Tool Handler - expects args dictionary with:
         repo_url: HTTPS Git URL (e.g., https://dev.azure.com/Vancity/_git/MyRepo)
         auth_token: Personal Access Token for private repos (optional)
     
     Returns:
         Dictionary with list of branch names
     """
+    if not GIT_AVAILABLE:
+        return {
+            "success": False,
+            "error": "GitPython is not installed. Run: pip install GitPython>=3.1.40"
+        }
+    
+    repo_url = args.get("repo_url")
+    auth_token = args.get("auth_token")
+    
+    if not repo_url:
+        return {
+            "success": False,
+            "error": "repo_url is required"
+        }
+    
     try:
         # Prepare URL with authentication
         clone_url = repo_url
@@ -352,23 +390,35 @@ async def list_repository_branches_handler(
         }
 
 
-async def check_repository_access_handler(
-    repo_url: str,
-    auth_token: Optional[str] = None
-) -> Dict[str, Any]:
+def check_repository_access(args: Dict[str, Any]) -> Dict[str, Any]:
     """
     Check if a repository is accessible (exists and user has permissions).
     
-    Args:
+    MCP Tool Handler - expects args dictionary with:
         repo_url: HTTPS Git URL (e.g., https://dev.azure.com/Vancity/_git/MyRepo)
         auth_token: Personal Access Token for private repos (optional)
     
     Returns:
         Dictionary indicating if repository is accessible
     """
+    if not GIT_AVAILABLE:
+        return {
+            "success": False,
+            "error": "GitPython is not installed. Run: pip install GitPython>=3.1.40"
+        }
+    
+    repo_url = args.get("repo_url")
+    auth_token = args.get("auth_token")
+    
+    if not repo_url:
+        return {
+            "success": False,
+            "error": "repo_url is required"
+        }
+    
     try:
         # Try to list branches to verify access
-        result = await list_repository_branches_handler(repo_url, auth_token)
+        result = list_repository_branches({"repo_url": repo_url, "auth_token": auth_token})
         
         if result.get('success'):
             return {
@@ -392,17 +442,3 @@ async def check_repository_access_handler(
             "repository": repo_url,
             "error": str(e)
         }
-
-
-# ============================================================================
-# Exported Functions
-# ============================================================================
-# This module provides standalone repository scanning functionality.
-# For integration with agent frameworks, use the handler functions directly:
-#   - scan_repository_handler()
-#   - list_repository_branches_handler()
-#   - check_repository_access_handler()
-#
-# These functions support Azure DevOps, GitHub, GitLab, Bitbucket, and any
-# Git server with HTTPS access.
-# ============================================================================

@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>SQL Injection Security Scan Report</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container { 
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+        }
+        header h1 { font-size: 32px; margin-bottom: 10px; }
+        header .meta { opacity: 0.9; font-size: 14px; }
+        
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .summary-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #6c757d;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .summary-card.total { border-left-color: #007bff; }
+        .summary-card.critical { border-left-color: #dc3545; }
+        .summary-card.high { border-left-color: #fd7e14; }
+        .summary-card.medium { border-left-color: #ffc107; }
+        .summary-card.low { border-left-color: #17a2b8; }
+        .summary-value { font-size: 36px; font-weight: bold; color: #333; }
+        .summary-label { font-size: 14px; color: #6c757d; margin-top: 5px; }
+        
+        .content { padding: 30px; }
+        .file-section {
+            margin-bottom: 30px;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .file-header {
+            background: #343a40;
+            color: white;
+            padding: 15px 20px;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .file-path { font-weight: bold; }
+        .finding-count { 
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+        
+        .finding {
+            padding: 20px;
+            border-bottom: 1px solid #e9ecef;
+            background: white;
+        }
+        .finding:last-child { border-bottom: none; }
+        .finding:hover { background: #f8f9fa; }
+        
+        .finding-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .severity {
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .severity.critical { background: #dc3545; color: white; }
+        .severity.high { background: #fd7e14; color: white; }
+        .severity.medium { background: #ffc107; color: #000; }
+        .severity.low { background: #17a2b8; color: white; }
+        
+        .line-number {
+            background: #e9ecef;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+            color: #495057;
+        }
+        
+        .issue-description {
+            color: #495057;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        
+        .code-block {
+            background: #f8f9fa;
+            border-left: 3px solid #dc3545;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .code-block code {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            color: #e83e8c;
+            display: block;
+            white-space: pre;
+        }
+        
+        .recommendation {
+            background: #d4edda;
+            border-left: 3px solid #28a745;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+        }
+        .recommendation-title {
+            font-weight: bold;
+            color: #155724;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .recommendation-text {
+            color: #155724;
+            font-size: 14px;
+        }
+        
+        .no-findings {
+            text-align: center;
+            padding: 60px 20px;
+            color: #28a745;
+        }
+        .no-findings-icon { font-size: 64px; margin-bottom: 20px; }
+        .no-findings-text { font-size: 24px; font-weight: 500; }
+        
+        footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+            border-top: 1px solid #e9ecef;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔒 SQL Injection Security Scan Report</h1>
+            <div class="meta">
+                <div>Scan Path: <strong>C:\Users\sararja\source\repos\Isl.Services.Crm</strong></div>
+                <div>Generated: <strong>2026-04-12 20:59:52</strong></div>
+            </div>
+        </header>
+        
+        <div class="summary">
+            <div class="summary-card total">
+                <div class="summary-value">26</div>
+                <div class="summary-label">Total Findings</div>
+            </div>
+            <div class="summary-card critical">
+                <div class="summary-value">26</div>
+                <div class="summary-label">Critical</div>
+            </div>
+            <div class="summary-card high">
+                <div class="summary-value">0</div>
+                <div class="summary-label">High</div>
+            </div>
+            <div class="summary-card medium">
+                <div class="summary-value">0</div>
+                <div class="summary-label">Medium</div>
+            </div>
+            <div class="summary-card low">
+                <div class="summary-value">0</div>
+                <div class="summary-label">Low</div>
+            </div>
+        </div>
+        
+        <div class="content">
+
+            <div class="file-section">
+                <div class="file-header">
+                    <span class="file-path">C:\Users\sararja\source\repos\Isl.Services.Crm\Application\Vancity.Isl.Crm.Context\CrmContext.cs</span>
+                    <span class="finding-count">1 issue</span>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 262</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>? throw new Exception($"Update Failed for {objectName}: {webResponse?.Content}")</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="file-section">
+                <div class="file-header">
+                    <span class="file-path">C:\Users\sararja\source\repos\Isl.Services.Crm\Application\Vancity.Isl.Crm.Context\Queries.cs</span>
+                    <span class="finding-count">20 issues</span>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 14</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>$"vc_parties?$select={QueryFields.Party.Trim()}&$filter={criteria.Field.ToLower()} eq '{criteria.Value}'&$expand=vc_cont</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 20</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>$"accounts?$select={QueryFields.Account.Trim()}&$filter={criteria.Field.ToLower()} eq '{criteria.Value}'" +</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 22</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>$"vc_enrollmentsite($select={QueryFields.Site}),vc_preferredsite($select={QueryFields.Site}),vc_maintaxresidency($select</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 23</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>$"vc_Address1CountryId($select={QueryFields.Country}), vc_Address2CountryId($select={QueryFields.Country})," +</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 24</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>$"transactioncurrencyid($select={QueryFields.Currency})," +</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 25</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>$"vc_naicscode($select={QueryFields.Naicscode})," +</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 26</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>$"owninguser($select={QueryFields.OwningUser}), owningteam($select={QueryFields.OwningTeam})";</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 33</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>$"contacts?$select={QueryFields.Contact.Trim()}&$filter={criteria.Field.ToLower()} eq '{criteria.Value}'" +</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 34</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>$"&$expand=vc_contact_vc_taxjurisdiction($select={QueryFields.Taxjurisdiction}),vc_contact_vc_identification($select={Qu</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 35</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>$"vc_consent_Contact_contact($select={QueryFields.Consent})," +</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 36</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>$"vc_enrollmentsite($select={QueryFields.Site}),vc_preferredsite($select={QueryFields.Site}),vc_maintaxresidency($select</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 37</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>$"vc_Address1CountryId($select={QueryFields.Country}), vc_Address2CountryId($select={QueryFields.Country})," +</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 38</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>$"transactioncurrencyid($select={QueryFields.Currency})," +</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 39</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>$"owninguser($select={QueryFields.OwningUser}), owningteam($select={QueryFields.OwningTeam})";</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 45</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>$"leads?$select={QueryFields.Leads.Trim()}&$filter={criteria.Field.ToLower()} eq '{criteria.Value}'" +</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 52</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>$"vc_identifications?$select={QueryFields.Identification.Trim()}&$filter={criteria.Field.ToLower()} eq '{criteria.Value}</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 58</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>$"vc_taxjurisdictions?$select={QueryFields.Taxjurisdiction.Trim()}&$filter={criteria.Field.ToLower()} eq '{criteria.Valu</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 64</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>$"opportunities?$select={QueryFields.Opportunity.Trim()}&$filter={criteria.Field.ToLower()} eq '{criteria.Value}'" +</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 65</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>$"&$expand=parentcontactid($select={QueryFields.Contact}), parentaccountid($select={QueryFields.Account})";</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 71</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>$"opportunityproducts?$select={QueryFields.OpportunityProduct.Trim()}&$filter={criteria.Field.ToLower()} eq '{criteria.V</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="file-section">
+                <div class="file-header">
+                    <span class="file-path">C:\Users\sararja\source\repos\Isl.Services.Crm\Application\Vancity.Isl.Crm.Context\Services\OpportunityContext.cs</span>
+                    <span class="finding-count">3 issues</span>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 143</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>_log.Verbose($"{TrackingId} Updated opportunityId: {opportunityId} to Lose");</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 148</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>_log.Warning($"{TrackingId} Error when update opportunityId: {opportunityId} to Lose.", ex);</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 184</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>_log.Verbose($"{TrackingId} Updated opportunityId: {opportunityId} to Win.");</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="file-section">
+                <div class="file-header">
+                    <span class="file-path">C:\Users\sararja\source\repos\Isl.Services.Crm\Application\Vancity.Isl.Crm.Context\Services\PartyContext.cs</span>
+                    <span class="finding-count">2 issues</span>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 1100</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>_log.Warning($"{TrackingId} Error trying to update Contact Identifiers: {ex.Message}", ex);</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="severity critical">critical</span>
+                        <span class="line-number">Line 1140</span>
+                    </div>
+                    <div class="issue-description">C# interpolated string used in SQL query</div>
+                    <div class="code-block"><code>_log.Warning($"{TrackingId} Error trying to update Company Identifiers: {ex.Message}", ex);</code></div>
+                    <div class="recommendation">
+                        <div class="recommendation-title">✅ Recommended Fix:</div>
+                        <div class="recommendation-text">Never use C# string interpolation in SQL. Use SqlParameter instead.</div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+        
+        <footer>
+            <p>Generated by Integration Platform MCP Server - SQL Scanner</p>
+            <p style="margin-top: 5px; font-size: 12px;">For more information, see scan documentation</p>
+        </footer>
+    </div>
+</body>
+</html>

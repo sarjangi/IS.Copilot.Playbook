@@ -9,7 +9,7 @@ This folder contains GitHub Copilot customizations that work across all programm
 | Skill | Description | Usage |
 |-------|-------------|-------|
 | [example-skill](skills/example-skill/SKILL.md) | Template showing proper multi-step agent structure | `/example-skill` |
-| [sql-injection-scanner](skills/sql-injection-scanner/SKILL.md) | Autonomous SQL injection vulnerability scanner for Python, JavaScript, TypeScript, C#, Java, PHP, and SQL files | `/sql-injection-scanner` |
+| [integration-platform](skills/integration-platform/SKILL.md) | Unified SQL injection and repository analysis tools for multi-language codebases | `/integration-platform` |
 
 ### Prompts (Slash Commands)
 

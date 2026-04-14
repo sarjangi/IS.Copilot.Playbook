@@ -139,9 +139,9 @@ stages:
         script: |
           Write-Host "🔍 Running SQL Injection Scanner..." -ForegroundColor Cyan
           
-          # Run the SQL scanner (from your MCP server)
-          if (Test-Path ".github/shared/skills/sql-injection-scanner/cli.py") {
-              python .github/shared/skills/sql-injection-scanner/cli.py scan-dir . --json > scan-results.json
+            # Run the SQL scanner from the unified Integration Platform server
+            if (Test-Path ".github/shared/skills/integration-platform/cli.py") {
+              python .github/shared/skills/integration-platform/cli.py scan-dir . --json > scan-results.json
               
               $results = Get-Content scan-results.json | ConvertFrom-Json
               
@@ -157,7 +157,7 @@ stages:
               }
           }
           else {
-              Write-Host "SQL Scanner not found, skipping..." -ForegroundColor Yellow
+                Write-Host "Integration Platform scanner not found, skipping..." -ForegroundColor Yellow
           }
     
     - task: PublishBuildArtifacts@1

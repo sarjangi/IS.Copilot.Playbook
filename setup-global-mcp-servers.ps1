@@ -8,6 +8,36 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Ensure Unicode characters render correctly in all PowerShell consoles
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+$OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+
+# Helper function to convert folder names to user-friendly display names
+function ConvertTo-DisplayName {
+    param([string]$folderName)
+    
+    # Convert hyphens to spaces and title case each word
+    # Example: "integration-platform" -> "Integration Platform"
+    $words = $folderName -split '-'
+    $titleCaseWords = $words | ForEach-Object { 
+        $_.Substring(0,1).ToUpper() + $_.Substring(1).ToLower() 
+    }
+    return $titleCaseWords -join ' '
+}
+
+# Helper function to derive VS Code's internal MCP tool prefix from a server display name.
+# VS Code slugifies "Integration Platform" -> "mcp_integration_p"
+# Formula: mcp_ + first-word-lowercase + _ + first-letter-of-each-remaining-word
+function ConvertTo-McpToolPrefix {
+    param([string]$serverName)
+    $words = $serverName.ToLower() -split '\s+'
+    if ($words.Count -eq 1) {
+        return "mcp_$($words[0])"
+    }
+    $initials = ($words[1..($words.Count - 1)] | ForEach-Object { $_[0] }) -join '_'
+    return "mcp_$($words[0])_$initials"
+}
+
 Write-Host "`n=== Global MCP Server Setup ===" -ForegroundColor Cyan
 Write-Host "Configuring MCP servers from IS.Copilot.Playbook for all repositories`n" -ForegroundColor White
 
@@ -107,6 +137,10 @@ if (-not $pythonCmd) {
 $pythonVersion = & python --version 2>&1
 Write-Host "[OK] $pythonVersion" -ForegroundColor Green
 
+# Resolve full Python path once — used for both pip installs and mcp.json
+$pythonPath = (Get-Command python).Source.Replace("\\", "/")
+Write-Host "   Python path: $pythonPath" -ForegroundColor Gray
+
 # ============================================================================
 # Step 4: Install dependencies
 # ============================================================================
@@ -123,7 +157,7 @@ foreach ($server in $mcpServers) {
         Write-Host "   Installing for $serverName..." -ForegroundColor Gray
         try {
             $ErrorActionPreference = "Continue"
-            $null = & python -m pip install -q -r $requirementsFile 2>&1
+            $null = & $pythonPath -m pip install -q -r $requirementsFile 2>&1
             $ErrorActionPreference = "Stop"
             if ($LASTEXITCODE -eq 0) {
                 $installedCount++
@@ -183,19 +217,28 @@ if (-not $mcpData.PSObject.Properties['servers']) {
 }
 
 # Get full Python path (not just "python")
-$pythonPath = (Get-Command python).Source.Replace("\", "/")
+# $pythonPath already resolved above in Step 3
 Write-Host "   Python executable: $pythonPath" -ForegroundColor Gray
+
+# Track registered server names for agent patching
+$registeredServerNames = @()
 
 # Build server configurations
 foreach ($server in $mcpServers) {
     # Use forward slashes for cross-platform compatibility
-    $serverPath = $server.FullName.Replace("\", "/")
-    $serverName = $server.Directory.Name
+    $serverPath = $server.FullName.Replace("\\", "/")
+    $folderName = $server.Directory.Name
     
-    Write-Host "   Configuring: $serverName" -ForegroundColor Gray
+    # Convert folder name to user-friendly display name
+    # Example: "integration-platform" -> "Integration Platform"
+    $serverName = ConvertTo-DisplayName -folderName $folderName
+    $registeredServerNames += $serverName
+    
+    Write-Host "   Configuring: $serverName (from $folderName folder)" -ForegroundColor Gray
     
     # Add or update server configuration with FULL Python path
     $serverConfig = [PSCustomObject]@{
+        type = "stdio"
         command = $pythonPath
         args = @($serverPath)
         env = [PSCustomObject]@{}
@@ -244,17 +287,96 @@ Write-Host "Setup Complete!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 
 Write-Host "`nConfigured MCP Servers:" -ForegroundColor Cyan
-foreach ($prop in $mcpConfig.PSObject.Properties) {
-    Write-Host "   [OK] $($prop.Name)" -ForegroundColor Gray
+if ($verification.servers) {
+    foreach ($prop in ($verification.servers | Get-Member -MemberType NoteProperty)) {
+        $serverName = $prop.Name
+        Write-Host "   [OK] $serverName" -ForegroundColor Gray
+        
+        # Add recommendation for Integration Platform
+        if ($serverName -eq "Integration Platform") {
+            Write-Host "      -> RECOMMENDED: Unified server with SQL scanning + repository analysis" -ForegroundColor Green
+        } elseif ($serverName -eq "Sql Injection Scanner") {
+            Write-Host "      -> Legacy: Use Integration Platform for new projects" -ForegroundColor DarkGray
+        }
+    }
 }
 
 Write-Host "`nThese servers are now available in ALL your VS Code workspaces!" -ForegroundColor Green
 
+# ============================================================================
+# Step 6: Install agents to VS Code user prompts folder (global, all workspaces)
+# ============================================================================
+
+Write-Host "`nStep 6: Installing Copilot agents..." -ForegroundColor Cyan
+
+$userPromptsDir = "$env:APPDATA\Code\User\prompts"
+if (-not (Test-Path $userPromptsDir)) {
+    New-Item -ItemType Directory -Force -Path $userPromptsDir | Out-Null
+    Write-Host "   Created prompts directory: $userPromptsDir" -ForegroundColor Gray
+}
+
+$agentFiles = Get-ChildItem -Path $playbookRepo -Recurse -Filter "*.agent.md" -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -notmatch "\\(node_modules|\.venv|venv|__pycache__|\.git)\\" }
+
+if ($agentFiles.Count -eq 0) {
+    Write-Host "   [INFO] No agent files found" -ForegroundColor DarkGray
+} else {
+    # Build explicit tool IDs from all registered servers.
+    # VS Code slugifies server names: "Integration Platform" -> mcp_integration_p_<toolname>
+    $allToolIds = @()
+    foreach ($serverName in $registeredServerNames) {
+        $prefix = ConvertTo-McpToolPrefix -serverName $serverName
+        # Find the server's Python file and extract tool names from the self.tools dict
+        $serverFile = ($mcpServers | Where-Object {
+            (ConvertTo-DisplayName -folderName $_.Directory.Name) -eq $serverName
+        }).FullName
+        if ($serverFile -and (Test-Path $serverFile)) {
+            # Match only top-level tool keys: lines like            "tool_name": {
+            # followed by a "description" key (distinguishes tools from schema properties)
+            $serverText = [System.IO.File]::ReadAllText($serverFile)
+            $toolNames = [regex]::Matches($serverText, '"(\w+)":\s*\{\s*[\r\n]+\s*"description"') |
+                ForEach-Object { $_.Groups[1].Value }
+            foreach ($toolName in $toolNames) {
+                $allToolIds += "${prefix}_${toolName}"
+            }
+        }
+    }
+
+    foreach ($agentFile in $agentFiles) {
+        $dest = Join-Path $userPromptsDir $agentFile.Name
+        $agentContent = [System.IO.File]::ReadAllText($agentFile.FullName, [System.Text.UTF8Encoding]::new($false))
+
+        if ($allToolIds.Count -gt 0) {
+            $toolsLines = $allToolIds | ForEach-Object { "  - $_" }
+            $toolsBlock = "tools:`n" + ($toolsLines -join "`n") + "`n"
+            # Replace only the tools: block; stop before any line that isn't a list item
+            $agentContent = $agentContent -replace '(?m)^tools:\r?\n(  - [^\r\n]+\r?\n)+', $toolsBlock
+        }
+
+        [System.IO.File]::WriteAllText($dest, $agentContent, [System.Text.UTF8Encoding]::new($false))
+        Write-Host "   [OK] $($agentFile.BaseName) -> $dest" -ForegroundColor Green
+        if ($allToolIds.Count -gt 0) {
+            Write-Host "      tools: $($allToolIds -join ', ')" -ForegroundColor DarkGray
+        }
+    }
+    Write-Host "[OK] $($agentFiles.Count) agent(s) installed globally" -ForegroundColor Green
+}
+
 Write-Host "`nNext steps:" -ForegroundColor Yellow
 Write-Host "   1. Reload VS Code: Ctrl+Shift+P -> 'Developer: Reload Window'" -ForegroundColor White
-Write-Host "   2. Verify setup: Ctrl+Shift+P -> 'MCP: list'" -ForegroundColor White
-Write-Host "   3. Check Output: Ctrl+Shift+U -> Select 'MCP Gateway'" -ForegroundColor White
-Write-Host "   4. Test in Copilot Chat: 'Scan this file for SQL injection vulnerabilities'" -ForegroundColor White
+Write-Host "   2. Verify setup: Check MCP status in GitHub Copilot" -ForegroundColor White
+Write-Host "   3. Test Integration Platform: 'Scan this file for SQL injection vulnerabilities'" -ForegroundColor White
+Write-Host "   4. Use security-pipeline agent: select it from the agent picker in Copilot Chat" -ForegroundColor White
+Write-Host "   5. View README: .github/shared/skills/integration-platform/README.md" -ForegroundColor White
+
+Write-Host "`nRecommendation:" -ForegroundColor Cyan
+Write-Host "   Use 'Integration Platform' for all new work - it includes:" -ForegroundColor White
+Write-Host "   - All SQL injection scanning features" -ForegroundColor Gray
+Write-Host "   - Repository cloning and analysis" -ForegroundColor Gray
+Write-Host "   - HTML report generation" -ForegroundColor Gray
+Write-Host "   - Parameterized query validation" -ForegroundColor Gray
+Write-Host "   - Broad security scanning and C# test generation" -ForegroundColor Gray
+Write-Host "   - End-to-end security pipeline with PR creation" -ForegroundColor Gray
 
 Write-Host "`nTip: When you pull updates to IS.Copilot.Playbook, run this script" -ForegroundColor Cyan
 Write-Host "again to pick up new MCP servers automatically!" -ForegroundColor Cyan
