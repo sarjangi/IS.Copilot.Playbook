@@ -194,11 +194,28 @@ class TestRunPipelineValidation(unittest.TestCase):
         self.assertIn("action", result["error"])
 
     @patch("pipeline._GIT_AVAILABLE", True)
-    def test_run_without_auth_token_ado(self):
-        """ADO repos still require an explicit token — no silent resolution."""
+    @patch("pipeline._resolve_ado_token", return_value="")   # prevent git credential fill blocking
+    def test_run_without_auth_token_ado(self, _mock_ado):
+        """ADO repos with no cached credentials should return a clear error."""
         result = run_pipeline({"action": "run", "repo_url": "https://dev.azure.com/org/proj/_git/repo"})
         self.assertIn("error", result)
-        self.assertIn("auth_token", result["error"])
+        # Error must guide the user — not expose internal implementation details
+        self.assertTrue(
+            "auth_token" in result["error"] or "ADO" in result["error"] or "credential" in result["error"],
+            f"Unexpected error message: {result['error']}"
+        )
+
+    @patch("pipeline._GIT_AVAILABLE", True)
+    @patch("pipeline._resolve_ado_token", return_value="fake_gcm_token")  # prevent git credential fill blocking
+    def test_run_ado_gcm_token_resolves_silently(self, _mock_ado):
+        """ADO repos should use GCM-cached credentials without a PAT being passed in."""
+        import pipeline as _pipeline
+        fake_git_error = _pipeline.GitCommandError("git clone", 128, "Repository not found")
+        with patch("pipeline._clone_repo", side_effect=fake_git_error):
+            result = run_pipeline({"action": "run", "repo_url": "https://dev.azure.com/org/proj/_git/repo"})
+        self.assertIn("error", result)
+        # Should be a clone error, not a credential error
+        self.assertNotIn("auth_token is required", result.get("error", ""))
 
     @patch("pipeline._GIT_AVAILABLE", True)
     def test_run_github_no_token_resolves_silently(self):

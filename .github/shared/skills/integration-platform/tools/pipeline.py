@@ -51,6 +51,45 @@ except ImportError:
 # Cloning helper
 # ---------------------------------------------------------------------------
 
+def _resolve_ado_token(provided_token: str) -> str:
+    """Return the best available ADO token without asking the user to paste one.
+
+    Developers who have used any ADO repo on this machine already have their
+    credentials cached by Git Credential Manager (GCM) — the same mechanism
+    git uses when you clone or push over HTTPS. We retrieve that cached token
+    silently via `git credential fill`.
+
+    Priority:
+    1. Explicitly provided token (passed in args) — used as-is.
+    2. ADO_TOKEN / AZURE_DEVOPS_TOKEN env vars — user explicitly set these.
+    3. `git credential fill` for dev.azure.com — reads GCM-cached Azure AD
+       OAuth session; no PAT required, works for any repo the dev has access to.
+    4. Empty string — caller decides whether to error out.
+    """
+    import os
+    if provided_token:
+        return provided_token
+    for env_var in ("ADO_TOKEN", "AZURE_DEVOPS_TOKEN"):
+        val = os.environ.get(env_var, "").strip()
+        if val:
+            return val
+    # Ask GCM for the cached ADO credential — same as what git uses internally.
+    # GIT_TERMINAL_PROMPT=0 ensures git never blocks waiting for interactive input.
+    try:
+        result = subprocess.run(
+            ["git", "credential", "fill"],
+            input="protocol=https\nhost=dev.azure.com\n\n",
+            capture_output=True, text=True, timeout=10,
+            env={**__import__("os").environ, "GIT_TERMINAL_PROMPT": "0"}
+        )
+        for line in result.stdout.splitlines():
+            if line.startswith("password="):
+                return line[len("password="):]
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    return ""
+
+
 def _resolve_github_token(provided_token: str) -> str:
     """Return the best available GitHub token without asking the user to paste one.
 
@@ -364,6 +403,8 @@ def run_pipeline(args: Dict[str, Any]) -> Dict[str, Any]:
 
     if platform == "github":
         auth_token = _resolve_github_token(auth_token)
+    elif platform == "azuredevops":
+        auth_token = _resolve_ado_token(auth_token)
 
     if action == "run" and not auth_token:
         if platform == "github":
@@ -372,6 +413,15 @@ def run_pipeline(args: Dict[str, Any]) -> Dict[str, Any]:
                     "No GitHub token found. Run `gh auth login` in a terminal to "
                     "authenticate via the GitHub CLI — you will never need to paste "
                     "a token into chat. Alternatively set the GH_TOKEN environment variable."
+                )
+            }
+        if platform == "azuredevops":
+            return {
+                "error": (
+                    "No ADO credentials found in Git Credential Manager. "
+                    "Clone or push any ADO repo once in a terminal to cache your credentials, "
+                    "then retry — no PAT needed. "
+                    "Alternatively set the ADO_TOKEN environment variable."
                 )
             }
         return {"error": "auth_token is required for action='run' (needed for push + PR)"}
