@@ -16,6 +16,7 @@ Requires GitPython for cloning (project dependency).
 from __future__ import annotations
 
 import shutil
+import subprocess
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -49,6 +50,36 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # Cloning helper
 # ---------------------------------------------------------------------------
+
+def _resolve_github_token(provided_token: str) -> str:
+    """Return the best available GitHub token without asking the user to paste one.
+
+    Priority:
+    1. Explicitly provided token (passed in args) — used as-is.
+    2. GH_TOKEN / GITHUB_TOKEN environment variables — set by CI or gh auth.
+    3. `gh auth token` — reads from the GitHub CLI credential store (safe, never
+       asks the user to paste anything into chat).
+    4. Empty string — caller decides whether to error out.
+    """
+    import os
+    if provided_token:
+        return provided_token
+    for env_var in ("GH_TOKEN", "GITHUB_TOKEN"):
+        val = os.environ.get(env_var, "").strip()
+        if val:
+            return val
+    try:
+        result = subprocess.run(
+            ["gh", "auth", "token"],
+            capture_output=True, text=True, timeout=10
+        )
+        token = result.stdout.strip()
+        if token:
+            return token
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    return ""
+
 
 def _build_clone_url(repo_url: str, auth_token: str) -> str:
     """Embed token into HTTPS URL for cloning (skip if SSH or no token)."""
@@ -316,7 +347,25 @@ def run_pipeline(args: Dict[str, Any]) -> Dict[str, Any]:
     if not repo_url:
         return {"error": "repo_url is required"}
 
+    # For GitHub repos, try to resolve a token from the gh CLI / env vars so
+    # the user never needs to paste a PAT into the chat interface.
+    try:
+        platform = detect_platform(repo_url)
+    except ValueError as exc:
+        return {"error": str(exc)}
+
+    if platform == "github":
+        auth_token = _resolve_github_token(auth_token)
+
     if action == "run" and not auth_token:
+        if platform == "github":
+            return {
+                "error": (
+                    "No GitHub token found. Run `gh auth login` in a terminal to "
+                    "authenticate via the GitHub CLI — you will never need to paste "
+                    "a token into chat. Alternatively set the GH_TOKEN environment variable."
+                )
+            }
         return {"error": "auth_token is required for action='run' (needed for push + PR)"}
 
     # -----------------------------------------------------------------------

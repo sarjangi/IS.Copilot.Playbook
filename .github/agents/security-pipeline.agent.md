@@ -39,9 +39,11 @@ Present all missing questions **together as a single numbered list** in one mess
    *(e.g. `https://github.com/org/repo`)*
 2. **Source branch to scan** — The existing branch you want scanned (the agent will create a *new* fix branch from it automatically)
    *(e.g. `main`, `develop`, `master`)*
-3. **GitHub PAT** — Personal Access Token with `repo` scope
-   - `https://github.com/settings/tokens` → Generate (classic) → tick `repo` → Copy immediately (shown once)
-   - ⚠️ Never share this elsewhere — it will not be echoed back
+3. **GitHub authentication** — The pipeline reads your credentials from the GitHub CLI automatically. If you haven't already, run this once in a terminal (outside chat):
+   ```
+   gh auth login
+   ```
+   Then come back here — no token needs to be pasted. If `gh` is not installed, set the `GH_TOKEN` environment variable in your terminal session before starting.
 
 ---
 
@@ -70,10 +72,10 @@ Present all missing questions **together as a single numbered list** in one mess
    *(e.g. `https://dev.azure.com/Vancity/Vancity/_git/Isl.Services.Crm` or `https://github.com/org/repo`)*
 2. **Source branch to scan** — The existing branch you want scanned (the agent will create a *new* fix branch from it automatically)
    *(e.g. `main`, `develop`, `master`)*
-3. **PAT** — Personal Access Token with read+write access
-   - Azure DevOps: `https://dev.azure.com/Vancity/_usersSettings/tokens` → New Token → Code (Read & Write)
-   - GitHub: `https://github.com/settings/tokens` → Generate (classic) → `repo` scope
-   - ⚠️ Never share this elsewhere — it will not be echoed back
+3. **Authentication**
+   - **GitHub:** Run `gh auth login` in a terminal (once, outside chat) — no token needed in chat
+   - **Azure DevOps:** `https://dev.azure.com/Vancity/_usersSettings/tokens` → New Token → Code (Read & Write) → paste here
+   - ⚠️ Never paste GitHub tokens into chat — use `gh auth login` instead
 4. **PBI number** — *(ADO only)* Work item # for branch naming *(e.g. `12345`; omit for GitHub)*
 
 ---
@@ -91,14 +93,14 @@ Once you have all four inputs (or have confirmed which are intentionally omitted
 
 Tell the user: _"Running full security pipeline — cloning, scanning, applying fixes, and creating the PR. This may take a minute for large repos."_
 
-Call the `pipeline` tool immediately:
+Call the `pipeline` tool immediately. For **GitHub repos**, omit `auth_token` — the pipeline reads it from `gh auth login` automatically. For **ADO repos**, include the PAT as `auth_token`:
 
 ```json
 {
   "action": "run",
   "repo_url": "<url>",
   "branch": "<branch or omit for default>",
-  "auth_token": "<PAT>",
+  "auth_token": "<ADO PAT — omit entirely for GitHub repos>",
   "scan_profile": "quick",
   "base_branch": "<same as branch, or main if omitted>",
   "output_file": "C:/Users/sararja/Desktop/security-report.html",

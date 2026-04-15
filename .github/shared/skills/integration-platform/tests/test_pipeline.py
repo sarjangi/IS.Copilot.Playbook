@@ -194,10 +194,26 @@ class TestRunPipelineValidation(unittest.TestCase):
         self.assertIn("action", result["error"])
 
     @patch("pipeline._GIT_AVAILABLE", True)
-    def test_run_without_auth_token(self):
-        result = run_pipeline({"action": "run", "repo_url": "https://github.com/a/b"})
+    def test_run_without_auth_token_ado(self):
+        """ADO repos still require an explicit token — no silent resolution."""
+        result = run_pipeline({"action": "run", "repo_url": "https://dev.azure.com/org/proj/_git/repo"})
         self.assertIn("error", result)
         self.assertIn("auth_token", result["error"])
+
+    @patch("pipeline._GIT_AVAILABLE", True)
+    def test_run_github_no_token_resolves_silently(self):
+        """GitHub repos should NOT hard-error on missing token — pipeline tries gh auth token.
+        If gh auth returns a token but clone fails (non-existent repo), that is a clone error,
+        not an auth_token error."""
+        from unittest.mock import patch as _patch
+        import pipeline as _pipeline
+        fake_git_error = _pipeline.GitCommandError("git clone", 128, "Repository not found")
+        with _patch("pipeline._resolve_github_token", return_value="ghp_fake"):
+            with _patch("pipeline._clone_repo", side_effect=fake_git_error):
+                result = run_pipeline({"action": "run", "repo_url": "https://github.com/a/b"})
+        self.assertIn("error", result)
+        # Should be a clone error, not a 'no auth_token' error
+        self.assertNotIn("auth_token is required", result.get("error", ""))
 
     def test_no_git_available(self):
         with patch("pipeline._GIT_AVAILABLE", False):
