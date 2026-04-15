@@ -56,18 +56,22 @@ def _resolve_github_token(provided_token: str) -> str:
 
     Priority:
     1. Explicitly provided token (passed in args) — used as-is.
-    2. GH_TOKEN / GITHUB_TOKEN environment variables — set by CI or gh auth.
-    3. `gh auth token` — reads from the GitHub CLI credential store (safe, never
-       asks the user to paste anything into chat).
-    4. Empty string — caller decides whether to error out.
+    2. GH_TOKEN env var — user explicitly set this; treat as intentional.
+    3. `gh auth token` — personal OAuth credentials via GitHub CLI; cross-repo
+       access, preferred over the auto-injected GITHUB_TOKEN.
+    4. GITHUB_TOKEN env var — last resort; auto-injected by VS Code / GitHub
+       Actions and scoped only to the current repo, so it will fail if the
+       target repo is different from the one that injected the token.
+    5. Empty string — caller decides whether to error out.
     """
     import os
     if provided_token:
         return provided_token
-    for env_var in ("GH_TOKEN", "GITHUB_TOKEN"):
-        val = os.environ.get(env_var, "").strip()
-        if val:
-            return val
+    # GH_TOKEN is explicitly user-set — honour it first
+    gh_token = os.environ.get("GH_TOKEN", "").strip()
+    if gh_token:
+        return gh_token
+    # gh auth token uses personal OAuth creds — works across all repos the user owns
     try:
         result = subprocess.run(
             ["gh", "auth", "token"],
@@ -78,6 +82,10 @@ def _resolve_github_token(provided_token: str) -> str:
             return token
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
+    # GITHUB_TOKEN last — it is repo-scoped and will fail against other repos
+    github_token = os.environ.get("GITHUB_TOKEN", "").strip()
+    if github_token:
+        return github_token
     return ""
 
 
