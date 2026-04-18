@@ -373,6 +373,9 @@ if ($agentFiles.Count -eq 0) {
         # Strip workspace-only flag so the deployed copy is visible in the agent picker
         $agentContent = $agentContent -replace '(?m)^user-invocable:\s*false\r?\n', ''
 
+        # Expand %USERNAME% placeholder to the actual Windows username
+        $agentContent = $agentContent -replace '%USERNAME%', $env:USERNAME
+
         if ($allToolIds.Count -gt 0) {
             $toolsLines = $allToolIds | ForEach-Object { "  - $_" }
             $toolsBlock = "tools:`n" + ($toolsLines -join "`n") + "`n"
@@ -380,7 +383,7 @@ if ($agentFiles.Count -eq 0) {
             $agentContent = $agentContent -replace '(?m)^tools:\r?\n(  - [^\r\n]+\r?\n)+', $toolsBlock
         }
 
-        [System.IO.File]::WriteAllText($dest, $agentContent, [System.Text.UTF8Encoding]::new($false))
+        [System.IO.File]::WriteAllText($dest, $agentContent, [System.Text.UTF8Encoding]::new($false))  # UTF-8 no BOM — preserves special chars
         Write-Host "   [OK] $($agentFile.BaseName) -> $dest" -ForegroundColor Green
         if ($allToolIds.Count -gt 0) {
             Write-Host "      tools: $($allToolIds -join ', ')" -ForegroundColor DarkGray

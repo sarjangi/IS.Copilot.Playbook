@@ -106,7 +106,7 @@ Call the `pipeline` tool immediately. Authentication is resolved automatically f
   "branch": "<branch or omit for default>",
   "scan_profile": "quick",
   "base_branch": "<same as branch, or main if omitted>",
-  "output_file": "C:/Users/sararja/Desktop/security-report.html",
+  "output_file": "C:/Users/%USERNAME%/Desktop/security-report.html",
   "pbi_number": "<PBI number or omit>"
 }
 ```
