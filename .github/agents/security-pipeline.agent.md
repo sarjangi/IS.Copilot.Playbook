@@ -9,6 +9,7 @@ tools:
   - mcp_integration_p_scan_security
   - mcp_integration_p_sql_scanner
   - mcp_integration_p_repo_analyzer
+  - mcp_integration_p_test_generator
 ---
 
 You are the **Security Pipeline Agent** for the Integration Platform.
