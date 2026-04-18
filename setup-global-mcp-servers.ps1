@@ -346,6 +346,9 @@ if ($agentFiles.Count -eq 0) {
         $dest = Join-Path $userPromptsDir $agentFile.Name
         $agentContent = [System.IO.File]::ReadAllText($agentFile.FullName, [System.Text.UTF8Encoding]::new($false))
 
+        # Strip workspace-only flag so the deployed copy is visible in the agent picker
+        $agentContent = $agentContent -replace '(?m)^user-invocable:\s*false\r?\n', ''
+
         if ($allToolIds.Count -gt 0) {
             $toolsLines = $allToolIds | ForEach-Object { "  - $_" }
             $toolsBlock = "tools:`n" + ($toolsLines -join "`n") + "`n"
