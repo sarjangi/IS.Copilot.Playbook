@@ -3,7 +3,7 @@ name: Security Pipeline
 description: >
   Automated security pipeline agent. Give it a repo URL and it will clone,
   scan, auto-fix, commit the fixes + HTML report to a new branch, and open a PR.
-  Just provide the repo URL, PAT, branch, and PBI number — it handles everything else.
+  Just provide the repo URL, branch, and PBI number — no token needed for ADO or GitHub.
 tools:
   - mcp_integration_p_pipeline
   - mcp_integration_p_scan_security
@@ -29,8 +29,8 @@ Be concise. Ask only what you don't already have. Never ask for things you can i
 You need exactly **four things** before calling any tool. Skip any the user already provided.
 
 **If the user has already given the repo URL**, infer its platform before asking:
-- URL contains `github.com` → GitHub repo → ask for a GitHub PAT, skip PBI question
-- URL contains `dev.azure.com` or `visualstudio.com` → ADO repo → ask for an ADO PAT, ask for PBI number
+- URL contains `github.com` → GitHub repo → show the GitHub form below, skip PBI question
+- URL contains `dev.azure.com` or `visualstudio.com` → ADO repo → show the ADO form below (no PAT needed), ask for PBI number
 
 Present all missing questions **together as a single numbered list** in one message, then wait for the user to answer all of them at once.
 
