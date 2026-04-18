@@ -122,16 +122,40 @@ foreach ($server in $mcpServers) {
 }
 
 # ============================================================================
-# Step 3: Check Python
+# Step 3: Check Python (auto-install via winget if missing)
 # ============================================================================
 
 Write-Host "`nStep 3: Checking Python installation..." -ForegroundColor Cyan
 
 $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
 if (-not $pythonCmd) {
-    Write-Host "[ERROR] Python not found. Please install Python 3.8+." -ForegroundColor Red
-    Write-Host "Download from: https://www.python.org/downloads/" -ForegroundColor Yellow
-    exit 1
+    Write-Host "   [INFO] Python not found. Attempting to install via winget..." -ForegroundColor Yellow
+
+    $winget = Get-Command winget -ErrorAction SilentlyContinue
+    if (-not $winget) {
+        Write-Host "[ERROR] winget not available. Please install Python 3.12+ manually." -ForegroundColor Red
+        Write-Host "Download from: https://www.python.org/downloads/" -ForegroundColor Yellow
+        exit 1
+    }
+
+    Write-Host "   Running: winget install Python.Python.3.12 ..." -ForegroundColor Gray
+    winget install --id Python.Python.3.12 --source winget --silent --accept-package-agreements --accept-source-agreements
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[ERROR] winget install failed (exit $LASTEXITCODE). Please install Python 3.12+ manually." -ForegroundColor Red
+        Write-Host "Download from: https://www.python.org/downloads/" -ForegroundColor Yellow
+        exit 1
+    }
+
+    # Refresh PATH so the new python.exe is visible in this session
+    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
+                [System.Environment]::GetEnvironmentVariable("PATH", "User")
+
+    $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $pythonCmd) {
+        Write-Host "[ERROR] Python installed but still not found on PATH. Please restart PowerShell and re-run this script." -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "[OK] Python installed successfully." -ForegroundColor Green
 }
 
 $pythonVersion = & python --version 2>&1
