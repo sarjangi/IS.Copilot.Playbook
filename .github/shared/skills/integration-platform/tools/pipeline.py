@@ -394,6 +394,8 @@ def run_pipeline(args: Dict[str, Any]) -> Dict[str, Any]:
     if not repo_url:
         return {"error": "repo_url is required"}
 
+    if not branch:
+        return {"error": "branch is required — please specify which branch to scan (e.g. main, develop, feature-xyz). Do not assume a default."}
     # For GitHub repos, try to resolve a token from the gh CLI / env vars so
     # the user never needs to paste a PAT into the chat interface.
     try:
