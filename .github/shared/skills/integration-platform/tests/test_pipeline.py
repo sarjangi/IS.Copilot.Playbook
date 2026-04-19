@@ -197,7 +197,7 @@ class TestRunPipelineValidation(unittest.TestCase):
     @patch("pipeline._resolve_ado_token", return_value="")   # prevent git credential fill blocking
     def test_run_without_auth_token_ado(self, _mock_ado):
         """ADO repos with no cached credentials should return a clear error."""
-        result = run_pipeline({"action": "run", "repo_url": "https://dev.azure.com/org/proj/_git/repo"})
+        result = run_pipeline({"action": "run", "repo_url": "https://dev.azure.com/org/proj/_git/repo", "branch": "main"})
         self.assertIn("error", result)
         # Error must guide the user — not expose internal implementation details
         self.assertTrue(
@@ -273,6 +273,7 @@ class TestRunPipelineDryRun(unittest.TestCase):
         result = run_pipeline(
             {
                 "action": "dry_run",
+                "branch": "main",
                 "repo_url": "https://github.com/org/repo.git",
             }
         )
@@ -312,7 +313,7 @@ class TestRunPipelineDryRun(unittest.TestCase):
         mock_fixes.return_value = _fix_result(findings)
 
         result = run_pipeline(
-            {"action": "dry_run", "repo_url": "https://github.com/org/repo.git"}
+            {"action": "dry_run", "branch": "main", "repo_url": "https://github.com/org/repo.git"}
         )
 
         self.assertIn("CRITICAL", result["html_report"])
@@ -337,7 +338,7 @@ class TestRunPipelineDryRun(unittest.TestCase):
         mock_fixes.return_value = _fix_result([])
 
         run_pipeline(
-            {"action": "dry_run", "repo_url": "https://github.com/org/repo.git"}
+            {"action": "dry_run", "branch": "main", "repo_url": "https://github.com/org/repo.git"}
         )
 
         mock_rmtree.assert_called()
@@ -363,7 +364,7 @@ class TestRunPipelineDryRun(unittest.TestCase):
         mock_repo_cls.clone_from.side_effect = _pipeline_mod.GitCommandError("clone failed", "")
 
         result = run_pipeline(
-            {"action": "dry_run", "repo_url": "https://github.com/org/repo.git"}
+            {"action": "dry_run", "branch": "main", "repo_url": "https://github.com/org/repo.git"}
         )
         self.assertIn("error", result)
         self.assertGreaterEqual(mock_rmtree.call_count, 1)
@@ -389,7 +390,7 @@ class TestRunPipelineDryRun(unittest.TestCase):
         mock_fixes.return_value = _fix_result([sql_finding, sec_finding])
 
         result = run_pipeline(
-            {"action": "dry_run", "repo_url": "https://github.com/org/repo.git"}
+            {"action": "dry_run", "branch": "main", "repo_url": "https://github.com/org/repo.git"}
         )
 
         self.assertEqual(result["total_findings"], 2)
@@ -420,6 +421,7 @@ class TestRunPipelineDryRun(unittest.TestCase):
         run_pipeline(
             {
                 "action": "dry_run",
+                "branch": "main",
                 "repo_url": "https://github.com/org/repo.git",
                 "scan_profile": "secrets",
             }
@@ -465,6 +467,7 @@ class TestRunPipelineRunMode(unittest.TestCase):
         result = run_pipeline(
             {
                 "action": "run",
+                "branch": "main",
                 "repo_url": "https://github.com/org/repo.git",
                 "auth_token": "ghp_secrettoken",
             }
@@ -504,6 +507,7 @@ class TestRunPipelineRunMode(unittest.TestCase):
         run_pipeline(
             {
                 "action": "run",
+                "branch": "main",
                 "repo_url": "https://github.com/org/repo.git",
                 "auth_token": "tok_abc",
             }
@@ -537,6 +541,7 @@ class TestRunPipelineRunMode(unittest.TestCase):
         result = run_pipeline(
             {
                 "action": "run",
+                "branch": "main",
                 "repo_url": "https://github.com/org/repo.git",
                 "auth_token": "ghp_token",
             }
@@ -577,6 +582,7 @@ class TestRunPipelineRunMode(unittest.TestCase):
         result = run_pipeline(
             {
                 "action": "run",
+                "branch": "main",
                 "repo_url": "https://github.com/org/repo.git",
                 "auth_token": "SUPERSECRETTOKEN",
             }
@@ -613,6 +619,7 @@ class TestRunPipelineRunMode(unittest.TestCase):
         result = run_pipeline(
             {
                 "action": "run",
+                "branch": "main",
                 "repo_url": "https://github.com/org/repo.git",
                 "auth_token": "tok",
             }
@@ -649,6 +656,7 @@ class TestRunPipelineRunMode(unittest.TestCase):
         run_pipeline(
             {
                 "action": "run",
+                "branch": "main",
                 "repo_url": "https://github.com/org/repo.git",
                 "auth_token": "tok",
                 "pr_title": "My Custom Title",
@@ -687,6 +695,7 @@ class TestRunPipelineRunMode(unittest.TestCase):
         run_pipeline(
             {
                 "action": "run",
+                "branch": "main",
                 "repo_url": "https://github.com/org/repo.git",
                 "auth_token": "tok",
                 "base_branch": "develop",

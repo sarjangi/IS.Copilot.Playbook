@@ -159,18 +159,73 @@ def _transform_weak_hash(line: str) -> Optional[str]:
     return new if new != line else None
 
 def _transform_sql_injection(line: str, finding: Optional[Dict] = None) -> Optional[str]:
-    """Best-effort SQL parameterization for Python cursor.execute() calls.
+    """Best-effort SQL parameterization for Python and C#.
 
-    Handles:
+    Python handles:
     - f-string interpolation: cursor.execute(f"SELECT ... {var} ...")
     - Simple string concatenation: cursor.execute("SELECT ... " + var)
+
+    C# handles:
+    - Interpolated string in assignment: string q = $"SELECT ... {var} ...";
+    - String concatenation: string q = "SELECT ... " + var + " ...";
 
     Returns None when the pattern is not recognised (caller falls back to comment).
     """
     finding = finding or {}
     file_path = finding.get("file", "")
+    ext = Path(file_path).suffix.lower() if file_path else ".py"
+
+    # ── C# transforms ──────────────────────────────────────────────────────
+    if ext == ".cs":
+        # Pattern: [var/string] name = $"...{var1}...{var2}...";
+        m = re.match(
+            r'^(\s*)(?:(?:var|string)\s+)?(\w+)\s*=\s*\$["\'](.+?)["\'];?\s*$',
+            line,
+        )
+        if m:
+            indent, var_name, sql_body = m.groups()
+            vars_found = re.findall(r'\{([^{}:!]+)[^{}]*\}', sql_body)
+            if vars_found:
+                plain_sql = re.sub(r'\{[^{}]+\}', '@p{}', sql_body)
+                # number the placeholders: @p0, @p1, ...
+                counter = [0]
+                def _num(match):
+                    n = counter[0]; counter[0] += 1; return f'@p{n}'
+                plain_sql = re.sub(r'@p\{\}', _num, plain_sql)
+                params = "".join(
+                    f'\n{indent}    cmd.Parameters.AddWithValue("@p{i}", {v});'
+                    for i, v in enumerate(vars_found)
+                )
+                return (
+                    f'{indent}var {var_name} = "{plain_sql}";\n'
+                    f'{indent}// TODO [CWE-89]: Replace inline query with SqlCommand + parameters:\n'
+                    f'{indent}// using var cmd = new SqlCommand({var_name}, connection);{params}\n'
+                )
+
+        # Pattern: string name = "SQL " + var + "...";
+        m2 = re.match(
+            r'^(\s*)(?:(?:var|string)\s+)?(\w+)\s*=\s*"([^"]+)"\s*\+\s*(.+?);?\s*$',
+            line,
+        )
+        if m2:
+            indent, var_name, sql_part, rest = m2.groups()
+            concat_vars = [v.strip() for v in rest.split('+') if v.strip().isidentifier()]
+            if concat_vars:
+                placeholders = " ".join(f'@p{i}' for i in range(len(concat_vars)))
+                params = "".join(
+                    f'\n{indent}    cmd.Parameters.AddWithValue("@p{i}", {v});'
+                    for i, v in enumerate(concat_vars)
+                )
+                return (
+                    f'{indent}var {var_name} = "{sql_part.rstrip()} {placeholders}";\n'
+                    f'{indent}// TODO [CWE-89]: Replace inline query with SqlCommand + parameters:\n'
+                    f'{indent}// using var cmd = new SqlCommand({var_name}, connection);{params}\n'
+                )
+        return None
+
+    # ── Python transforms ───────────────────────────────────────────────────
     # Only attempt mechanical rewrite for Python files
-    if file_path and not file_path.endswith(".py"):
+    if file_path and ext != ".py":
         return None
 
     # Pattern 1: cursor.execute(f"...{var}...")

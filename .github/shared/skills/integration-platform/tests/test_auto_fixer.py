@@ -183,6 +183,23 @@ class TestTransformSqlInjection(unittest.TestCase):
         result = _transform_sql_injection(line, self._finding())
         self.assertIsNone(result)
 
+    def test_csharp_interpolated_string_parameterized(self):
+        line = '        string query = $"SELECT * FROM Users WHERE Id = {userId}";\n'
+        result = _transform_sql_injection(line, self._finding(".cs"))
+        self.assertIsNotNone(result)
+        self.assertIn("@p0", result)
+        self.assertIn("userId", result)
+        self.assertIn("AddWithValue", result)
+        self.assertNotIn("$\"", result)
+
+    def test_csharp_concat_parameterized(self):
+        line = '        string query = "SELECT * FROM Users WHERE Id = " + userId;\n'
+        result = _transform_sql_injection(line, self._finding(".cs"))
+        self.assertIsNotNone(result)
+        self.assertIn("@p0", result)
+        self.assertIn("userId", result)
+        self.assertIn("AddWithValue", result)
+
 
 # ---------------------------------------------------------------------------
 # _transform_hardcoded_credential
