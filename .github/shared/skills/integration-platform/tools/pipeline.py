@@ -51,7 +51,7 @@ except ImportError:
 # Cloning helper
 # ---------------------------------------------------------------------------
 
-def _resolve_ado_token(provided_token: str) -> str:
+def _resolve_ado_token(provided_token: str, repo_url: str = "") -> str:
     """Return the best available ADO token without asking the user to paste one.
 
     Developers who have used any ADO repo on this machine already have their
@@ -67,26 +67,37 @@ def _resolve_ado_token(provided_token: str) -> str:
     4. Empty string — caller decides whether to error out.
     """
     import os
+    import re
     if provided_token:
         return provided_token
     for env_var in ("ADO_TOKEN", "AZURE_DEVOPS_TOKEN"):
         val = os.environ.get(env_var, "").strip()
         if val:
             return val
+    # Extract org from URL: https://dev.azure.com/{org}/...
+    org = ""
+    m = re.match(r"https://dev\.azure\.com/([^/]+)", repo_url)
+    if m:
+        org = m.group(1)
     # Ask GCM for the cached ADO credential — same as what git uses internally.
     # GIT_TERMINAL_PROMPT=0 ensures git never blocks waiting for interactive input.
-    try:
-        result = subprocess.run(
-            ["git", "credential", "fill"],
-            input="protocol=https\nhost=dev.azure.com\n\n",
-            capture_output=True, text=True, timeout=10,
-            env={**__import__("os").environ, "GIT_TERMINAL_PROMPT": "0"}
-        )
-        for line in result.stdout.splitlines():
-            if line.startswith("password="):
-                return line[len("password="):]
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
+    # Try org-specific path (GCM v2) first, then without path (GCM v1).
+    credential_inputs = ["protocol=https\nhost=dev.azure.com\n\n"]
+    if org:
+        credential_inputs.insert(0, f"protocol=https\nhost=dev.azure.com\npath={org}\n\n")
+    for credential_input in credential_inputs:
+        try:
+            result = subprocess.run(
+                ["git", "credential", "fill"],
+                input=credential_input,
+                capture_output=True, text=True, timeout=10,
+                env={**__import__("os").environ, "GIT_TERMINAL_PROMPT": "0"}
+            )
+            for line in result.stdout.splitlines():
+                if line.startswith("password="):
+                    return line[len("password="):]
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
     return ""
 
 
@@ -406,7 +417,7 @@ def run_pipeline(args: Dict[str, Any]) -> Dict[str, Any]:
     if platform == "github":
         auth_token = _resolve_github_token(auth_token)
     elif platform == "azuredevops":
-        auth_token = _resolve_ado_token(auth_token)
+        auth_token = _resolve_ado_token(auth_token, repo_url)
 
     if action == "run" and not auth_token:
         if platform == "github":

@@ -173,5 +173,7 @@ Wait for the user's choice. If they pick 1 or 2, call the pipeline immediately w
 - **Never print the auth token** — redact it if it appears anywhere in tool output.
 - **Never ask for mode or scan profile** — always `run` and `quick` unless the user explicitly requests otherwise.
 - **Never re-confirm before calling the tool** — once you have the four required inputs, call immediately.
+- **Never suggest setting `ADO_TOKEN` or pasting a PAT** — if the tool returns an auth error, show exactly this message and nothing else:
+  > Authentication failed. Your git credentials may not be cached yet. Run any git command against the ADO repo once in a terminal (e.g. `git fetch` inside your local clone), then say **retry**.
 - Only HTTPS URLs are supported. If the user gives an SSH URL, ask them to switch to HTTPS.
 - SQL injection (CWE-89) requires manual parameterization — never claim it is auto-fixed.
