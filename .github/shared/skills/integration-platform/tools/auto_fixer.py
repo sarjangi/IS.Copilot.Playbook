@@ -193,12 +193,12 @@ def _transform_sql_injection(line: str, finding: Optional[Dict] = None) -> Optio
                     n = counter[0]; counter[0] += 1; return f'@p{n}'
                 plain_sql = re.sub(r'@p\{\}', _num, plain_sql)
                 params = "".join(
-                    f'\n{indent}    cmd.Parameters.AddWithValue("@p{i}", {v});'
+                    f'\n{indent}// cmd.Parameters.AddWithValue("@p{i}", {v});'
                     for i, v in enumerate(vars_found)
                 )
                 return (
                     f'{indent}var {var_name} = "{plain_sql}";\n'
-                    f'{indent}// TODO [CWE-89]: Replace inline query with SqlCommand + parameters:\n'
+                    f'{indent}// TODO [CWE-89]: Use parameterized query — replace above with SqlCommand:\n'
                     f'{indent}// using var cmd = new SqlCommand({var_name}, connection);{params}\n'
                 )
 
@@ -213,12 +213,12 @@ def _transform_sql_injection(line: str, finding: Optional[Dict] = None) -> Optio
             if concat_vars:
                 placeholders = " ".join(f'@p{i}' for i in range(len(concat_vars)))
                 params = "".join(
-                    f'\n{indent}    cmd.Parameters.AddWithValue("@p{i}", {v});'
+                    f'\n{indent}// cmd.Parameters.AddWithValue("@p{i}", {v});'
                     for i, v in enumerate(concat_vars)
                 )
                 return (
                     f'{indent}var {var_name} = "{sql_part.rstrip()} {placeholders}";\n'
-                    f'{indent}// TODO [CWE-89]: Replace inline query with SqlCommand + parameters:\n'
+                    f'{indent}// TODO [CWE-89]: Use parameterized query — replace above with SqlCommand:\n'
                     f'{indent}// using var cmd = new SqlCommand({var_name}, connection);{params}\n'
                 )
         return None
