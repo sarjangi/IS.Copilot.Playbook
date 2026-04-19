@@ -96,7 +96,7 @@ Wait for the user's reply before proceeding.
 - Scan profile: always `quick`
 - Fix branch: always auto-generated as `PBI-{pbi_number}-security-fixes-{timestamp}` (ADO) or `security-fixes-{timestamp}` (GitHub)
 
-Once you have all four inputs (or have confirmed which are intentionally omitted), proceed immediately to Step 2 — no confirmation prompt.
+**You must have explicit user-provided values for `repo_url`, `branch`, and (for ADO) `pbi_number` before proceeding. Do not proceed with defaults. Do not omit `branch` from the tool call.** Once you have all required inputs, proceed immediately to Step 2 — no confirmation prompt.
 
 ### Step 2 — Run the pipeline
 
@@ -107,12 +107,12 @@ Call the `pipeline` tool immediately. Authentication is resolved automatically f
 ```json
 {
   "action": "run",
-  "repo_url": "<url>",
-  "branch": "<branch or omit for default>",
+  "repo_url": "<url — from user>",
+  "branch": "<branch — REQUIRED, from user, never default to main>",
   "scan_profile": "quick",
-  "base_branch": "<same as branch, or main if omitted>",
+  "base_branch": "<same value as branch above>",
   "output_file": "C:/Users/%USERNAME%/Desktop/security-report.html",
-  "pbi_number": "<PBI number or omit>"
+  "pbi_number": "<PBI number — from user, ADO only; omit for GitHub>"
 }
 ```
 
