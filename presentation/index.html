@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smarter Development with AI — 2026</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- Progress Bar -->
+  <div id="progress-bar"><div id="progress-fill"></div></div>
+
+  <!-- Deck -->
+  <main id="deck">
+
+    <!-- ═══════════════════════════════════════════
+         SLIDE 1 — COVER
+         Image: AI visualization / space tech
+    ═══════════════════════════════════════════ -->
+    <section class="slide cover active" data-index="0">
+      <img class="cover-photo"
+           src="https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=1400&q=85&fit=crop"
+           alt="Abstract AI swirling visualization in purple and blue">
+      <div class="cover-overlay"></div>
+      <div class="cover-text">
+        <span class="tag tag-sky">Tech Briefing &nbsp;&middot;&nbsp; April 2026 &nbsp;&middot;&nbsp; 60 min</span>
+        <h1>Smarter Development<br>with AI</h1>
+        <p class="cover-sub">Tools &nbsp;&middot;&nbsp; Agents &nbsp;&middot;&nbsp; MCP &nbsp;&middot;&nbsp; Why GitHub Unlocks Everything</p>
+        <p class="hint">Use &larr; &rarr; arrow keys or the buttons below</p>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════
+         SLIDE 2 — AI AMPLIFIES
+         Image: humanoid robot (white, friendly)
+    ═══════════════════════════════════════════ -->
+    <section class="slide side-layout" data-index="1">
+      <div class="side-content">
+        <span class="tag tag-rose">01 &middot; Foundation</span>
+        <h2>AI Amplifies Developers.<br>It Does Not Replace Them.</h2>
+        <ul class="bullets">
+          <li class="b-rose"><strong>Speed at scale</strong> &mdash; boilerplate, refactoring, docs, tests on demand</li>
+          <li class="b-rose"><strong>You still own</strong> &mdash; intent, architecture, business context, every decision</li>
+          <li class="b-rose"><strong>Proven results</strong> &mdash; teams adopting AI tools ship 30&ndash;50&thinsp;% faster with fewer defects</li>
+          <li class="b-rose"><strong>Right analogy</strong> &mdash; the compiler didn&apos;t replace devs; it freed them to think higher</li>
+          <li class="b-rose"><strong>Real win</strong> &mdash; security review + PR: 2&nbsp;days &rarr; 10&nbsp;minutes</li>
+        </ul>
+      </div>
+      <div class="side-photo">
+        <img src="https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=900&q=85&fit=crop"
+             alt="White humanoid robot representing AI assisting humans">
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════
+         SLIDE 3 — RAG
+         Image: neural network / data nodes
+    ═══════════════════════════════════════════ -->
+    <section class="slide cards-layout" data-index="2">
+      <div class="cards-top">
+        <div class="cards-header-text">
+          <span class="tag tag-amber">02 &middot; Context</span>
+          <h2>RAG &mdash; How AI Learns Your Codebase</h2>
+          <p class="deck-sub">LLMs know general patterns. RAG injects <em>your specific context</em> at query time.</p>
+        </div>
+        <img class="cards-top-photo"
+             src="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=780&q=85&fit=crop"
+             alt="Neural network nodes and connections representing data retrieval">
+      </div>
+      <div class="cards-grid">
+        <div class="card card-sky">
+          <div class="card-ico">&#9986;&#65039;</div>
+          <div class="card-title">Chunking</div>
+          <div class="card-body">Split code &amp; docs into meaningful segments by function or token limit</div>
+        </div>
+        <div class="card card-violet">
+          <div class="card-ico">&#128290;</div>
+          <div class="card-title">Vector Search</div>
+          <div class="card-body">Embed chunks as numbers &mdash; find semantically similar passages instantly</div>
+        </div>
+        <div class="card card-amber">
+          <div class="card-ico">&#128256;</div>
+          <div class="card-title">Hybrid Search</div>
+          <div class="card-body">Combine vector similarity + keyword matching for higher precision</div>
+        </div>
+        <div class="card card-green">
+          <div class="card-ico">&#127942;</div>
+          <div class="card-title">Re-ranking</div>
+          <div class="card-body">A second model reorders results by true relevance to the question</div>
+        </div>
+        <div class="card card-rose">
+          <div class="card-ico">&#128260;</div>
+          <div class="card-title">Query Reformulation</div>
+          <div class="card-body">Rewrite the question before retrieval to improve match quality</div>
+        </div>
+        <div class="card card-teal">
+          <div class="card-ico">&#128161;</div>
+          <div class="card-title">In Copilot Today</div>
+          <div class="card-body">Open files + <code>@workspace</code> are the retrieval layer &mdash; RAG is already running</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════
+         SLIDE 4 — TOOL COMPARISON
+         Image: developer coding, multiple screens
+    ═══════════════════════════════════════════ -->
+    <section class="slide table-layout" data-index="3">
+      <div class="table-header">
+        <div>
+          <span class="tag tag-sky">03 &middot; Tools</span>
+          <h2>GitHub Copilot vs Cursor vs OpenAI</h2>
+        </div>
+        <img class="table-header-photo"
+             src="https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=620&q=85&fit=crop"
+             alt="Developer writing code on screen">
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th>&#127381; GitHub Copilot</th>
+              <th>Cursor</th>
+              <th>OpenAI (ChatGPT)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="row-label">IDE Integration</td>
+              <td class="win">&#11088;&#11088;&#11088;&#11088;&#11088; VS Code, JetBrains, Visual Studio</td>
+              <td>&#11088;&#11088;&#11088;&#11088; VS Code fork</td>
+              <td class="bad">&#10007; Web / API only</td>
+            </tr>
+            <tr>
+              <td class="row-label">Codebase Awareness</td>
+              <td class="win"><code>@workspace</code> full index</td>
+              <td>Full codebase default</td>
+              <td class="bad">Manual file upload</td>
+            </tr>
+            <tr>
+              <td class="row-label">Agent Automation</td>
+              <td class="win"><code>.agent.md</code> + MCP tools</td>
+              <td>Composer mode</td>
+              <td class="bad">Assistants API — no IDE</td>
+            </tr>
+            <tr>
+              <td class="row-label">Enterprise SSO / Audit</td>
+              <td class="win">&#10004; Entra / SAML / audit logs</td>
+              <td>Limited</td>
+              <td class="bad">&#10007; None</td>
+            </tr>
+            <tr>
+              <td class="row-label">Secret Scanning</td>
+              <td class="win">&#10004; GitHub Advanced Security</td>
+              <td class="bad">&#10007;</td>
+              <td class="bad">&#10007;</td>
+            </tr>
+            <tr>
+              <td class="row-label">Best Fit For Us</td>
+              <td class="winner">&#10004; Our stack &mdash; ADO + GitHub</td>
+              <td>~ Partial</td>
+              <td class="bad">&#10007; No integration</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════
+         SLIDE 5 — AGENT CONCEPTS (SPLIT)
+         Image: glowing circuit board
+    ═══════════════════════════════════════════ -->
+    <section class="slide side-layout" data-index="4">
+      <div class="side-content">
+        <span class="tag tag-violet">04 &middot; Concepts</span>
+        <h2>Copilot Agent &asymp; OpenAI Agent<br><span style="font-size:.75em;font-weight:600;color:#64748b">Same Loop &mdash; Different Surface</span></h2>
+        <div class="split-compare">
+          <div class="split-box box-sky">
+            <div class="split-brand" style="color:#1d4ed8">&#129302; OpenAI Agent</div>
+            <ul class="mini-bullets">
+              <li>System prompt defines behaviour</li>
+              <li>Tool definitions via JSON schema</li>
+              <li>Function calls during reasoning loop</li>
+              <li>Threads store persistent memory</li>
+              <li>Cloud only &mdash; no IDE context</li>
+            </ul>
+          </div>
+          <div class="split-box box-green">
+            <div class="split-brand" style="color:#15803d">&#128737;&#65039; Copilot Agent (.agent.md)</div>
+            <ul class="mini-bullets">
+              <li>Instructions frontmatter &mdash; same concept</li>
+              <li>MCP tool IDs instead of JSON schemas</li>
+              <li>MCP calls during the agentic loop</li>
+              <li>Conversation window as working memory</li>
+              <li><strong>Runs inside your IDE</strong> &mdash; files, git, terminal</li>
+            </ul>
+          </div>
+        </div>
+        <p class="loop-note">Plan &rarr; Select Tool &rarr; Execute &rarr; Observe &rarr; Repeat</p>
+      </div>
+      <div class="side-photo">
+        <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?w=900&q=85&fit=crop"
+             alt="Circuit board representing agent loops and automation">
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════
+         SLIDE 6 — BUILDING BLOCKS
+         Image: Lego / modular colorful blocks
+    ═══════════════════════════════════════════ -->
+    <section class="slide side-layout" data-index="5">
+      <div class="side-content">
+        <span class="tag tag-violet">05 &middot; Building Blocks</span>
+        <h2>Skills &middot; Prompts &middot; Agents &middot; Instructions</h2>
+        <ul class="bullets">
+          <li class="b-violet">
+            <strong>Instructions</strong> <code>copilot-instructions.md</code> &mdash;
+            always-on rules for every chat. Think: system prompt for the whole workspace.
+          </li>
+          <li class="b-violet">
+            <strong>Prompts</strong> <code>.prompt.md</code> &mdash;
+            reusable slash commands like <code>/securityScan</code>. Templates on demand.
+          </li>
+          <li class="b-violet">
+            <strong>Skills</strong> <code>SKILL.md</code> &mdash;
+            deep domain expertise loaded when relevant (SQL rules, KQL patterns&hellip;).
+          </li>
+          <li class="b-violet">
+            <strong>Agents</strong> <code>.agent.md</code> &mdash;
+            autonomous multi-step workflows with scoped tools and a defined goal.
+          </li>
+          <li class="b-violet">
+            <em>Analogy:</em> Instructions = office policy &nbsp;&middot;&nbsp; Prompts = SOPs &nbsp;&middot;&nbsp;
+            Skills = manuals &nbsp;&middot;&nbsp; Agents = automated team member
+          </li>
+        </ul>
+      </div>
+      <div class="side-photo">
+        <img src="https://images.unsplash.com/photo-1587654780291-39c9404d746b?w=900&q=85&fit=crop"
+             alt="Colorful Lego-like modular building blocks representing composable AI tools">
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════
+         SLIDE 7 — MCP
+         Image: fiber optic / network cables
+    ═══════════════════════════════════════════ -->
+    <section class="slide side-layout" data-index="6">
+      <div class="side-content">
+        <span class="tag tag-teal">06 &middot; Platform</span>
+        <h2>MCP &mdash; Model Context Protocol</h2>
+        <p class="deck-sub-dark">Open standard (Anthropic, 2024). Think <strong>USB-C</strong>: one universal connector for any tool and any AI model.</p>
+        <ul class="bullets">
+          <li class="b-teal"><strong>How it works</strong> &mdash; AI speaks MCP &rarr; server exposes tools &rarr; AI calls them during reasoning</li>
+          <li class="b-teal"><strong>No lock-in</strong> &mdash; any IDE supporting MCP can invoke our tools</li>
+          <li class="b-teal"><strong>Our server</strong> &mdash; <code>integration_platform_mcp_server.py</code></li>
+          <li class="b-teal"><strong>Tools today</strong> &mdash; <code>run_pipeline</code> &middot; <code>scan_security</code> &middot; <code>analyze_repo</code> &middot; <code>generate_tests</code></li>
+          <li class="b-teal"><strong>Future</strong> &mdash; ServiceNow, SonarQube, Jira &mdash; zero AI code changes needed</li>
+        </ul>
+      </div>
+      <div class="side-photo">
+        <img src="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=900&q=85&fit=crop"
+             alt="Colorful fiber optic cables representing MCP connections between tools">
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════
+         SLIDE 8 — SECURITY PIPELINE
+         Image: cybersecurity / lock / shield
+    ═══════════════════════════════════════════ -->
+    <section class="slide pipeline-layout" data-index="7">
+      <div class="pipeline-header">
+        <div>
+          <span class="tag tag-amber">07 &middot; Our Project</span>
+          <h2>Security Pipeline &mdash; From Chat to Pull Request</h2>
+          <p class="pipeline-foot">169 automated tests &nbsp;&middot;&nbsp; Zero manual steps &nbsp;&middot;&nbsp; Auth via GCM &mdash; no PAT required</p>
+        </div>
+        <img class="pipeline-photo"
+             src="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=680&q=85&fit=crop"
+             alt="Cybersecurity lock and code representing automated security scanning">
+      </div>
+      <div class="pipeline-steps">
+        <div class="step step-rose">
+          <div class="step-num">1</div>
+          <div class="step-ico">&#128172;</div>
+          <div class="step-label">Invoke</div>
+          <div class="step-desc">Repo URL + branch + PBI number. Nothing else.</div>
+        </div>
+        <div class="step-arrow">&rsaquo;</div>
+        <div class="step step-amber">
+          <div class="step-num">2</div>
+          <div class="step-ico">&#128269;</div>
+          <div class="step-label">Clone &amp; Scan</div>
+          <div class="step-desc">Bandit + Semgrep across all source files.</div>
+        </div>
+        <div class="step-arrow">&rsaquo;</div>
+        <div class="step step-sky">
+          <div class="step-num">3</div>
+          <div class="step-ico">&#128295;</div>
+          <div class="step-label">Auto-Fix</div>
+          <div class="step-desc">Parameterize SQL, remove secrets, patch traversal.</div>
+        </div>
+        <div class="step-arrow">&rsaquo;</div>
+        <div class="step step-violet">
+          <div class="step-num">4</div>
+          <div class="step-ico">&#128202;</div>
+          <div class="step-label">HTML Report</div>
+          <div class="step-desc">Severity-graded report with diff view.</div>
+        </div>
+        <div class="step-arrow">&rsaquo;</div>
+        <div class="step step-green">
+          <div class="step-num">5</div>
+          <div class="step-ico">&#128640;</div>
+          <div class="step-label">Open PR</div>
+          <div class="step-desc">Commit fixes, open Pull Request automatically.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════
+         SLIDE 9 — ADO vs GITHUB (VERSUS)
+         Image: git branching / repository
+    ═══════════════════════════════════════════ -->
+    <section class="slide versus-layout" data-index="8">
+      <div class="versus-header">
+        <span class="tag tag-rose">08 &middot; Business Case</span>
+        <h2>ADO Only vs GitHub + Copilot Enterprise</h2>
+        <img class="versus-photo"
+             src="https://images.unsplash.com/photo-1556075798-4825dfaaf498?w=540&q=85&fit=crop"
+             alt="Git repository branching showing two different paths">
+      </div>
+      <div class="versus-cols">
+        <div class="versus-col col-bad">
+          <div class="versus-head" style="color:#b91c1c">&#9888;&#65039; ADO Only (Today)</div>
+          <ul class="versus-items">
+            <li>Code completion only &mdash; no workspace agents</li>
+            <li>No MCP: the pipeline <strong>cannot run</strong></li>
+            <li>Every security audit = hours of manual work</li>
+            <li>No GitHub Advanced Security integration</li>
+            <li>No secret scanning on commits</li>
+            <li>No org-wide policies or audit logs</li>
+          </ul>
+        </div>
+        <div class="versus-col col-good">
+          <div class="versus-head" style="color:#15803d">&#10004; GitHub + Copilot Enterprise</div>
+          <ul class="versus-items">
+            <li>Full agent automation &mdash; <strong>what we built today</strong></li>
+            <li>MCP extends to <strong>any</strong> internal tool</li>
+            <li>Security PR auto-created: <strong>2 days &rarr; 10 min</strong></li>
+            <li>GitHub Advanced Security &mdash; built in</li>
+            <li>Secret scanning blocks credentials before merge</li>
+            <li>One prevented incident &gt; years of licence cost</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════
+         SLIDE 10 — THE ASK
+         Image: team presenting to management
+    ═══════════════════════════════════════════ -->
+    <section class="slide side-layout" data-index="9">
+      <div class="side-content">
+        <span class="tag tag-amber">09 &middot; The Ask &#10024;</span>
+        <h2>What We Need From You</h2>
+        <div class="ask-list">
+          <div class="ask-card">
+            <div class="ask-num">1</div>
+            <div class="ask-text">GitHub repository access for the team &mdash; mirror or migration from ADO</div>
+          </div>
+          <div class="ask-card">
+            <div class="ask-num">2</div>
+            <div class="ask-text">GitHub Copilot <strong>Enterprise</strong> licence &mdash; org policies, audit logs, Advanced Security</div>
+          </div>
+          <div class="ask-card">
+            <div class="ask-num">3</div>
+            <div class="ask-text">30-day pilot &mdash; measure PRs auto-created, vulnerabilities caught, hours saved</div>
+          </div>
+          <div class="ask-card">
+            <div class="ask-num">4</div>
+            <div class="ask-text">Success metric: pipeline runs on <strong>5 real production repos</strong> before pilot ends</div>
+          </div>
+        </div>
+        <div class="roi-box">&#128176; One prevented data breach = years of Copilot Enterprise subscription cost</div>
+      </div>
+      <div class="side-photo">
+        <img src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=900&q=85&fit=crop"
+             alt="Business team presenting to management in a meeting room">
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Navigation -->
+  <nav id="nav">
+    <button id="btn-prev" class="nav-btn" disabled>&#8592; Prev</button>
+    <div id="dots"></div>
+    <span id="counter">1 / 10</span>
+    <button id="btn-next" class="nav-btn">Next &#8594;</button>
+    <button id="btn-fullscreen" class="nav-btn nav-btn-fs">&#x26F6; Full</button>
+  </nav>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
