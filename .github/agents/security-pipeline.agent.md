@@ -26,7 +26,12 @@ Be concise. Ask only what you don't already have. Never ask for things you can i
 
 ### Step 1 — Collect the minimum required inputs
 
-You need exactly **four things** before calling any tool. Skip any the user already provided.
+You need the following before calling any tool. **Never infer, guess, or default branch or PBI from workspace context, conversation history, or any other source** — always ask the user explicitly.
+
+**Required inputs:**
+- **repo_url** — may be provided by the user in their message; if not, ask
+- **branch** — ALWAYS ask; never infer from the current workspace or git state
+- **pbi_number** — ALWAYS ask for ADO repos; never reuse a value from context
 
 **If the user has already given the repo URL**, infer its platform before asking:
 - URL contains `github.com` → GitHub repo → show the GitHub form below, skip PBI question
