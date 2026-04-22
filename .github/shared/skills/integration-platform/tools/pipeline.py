@@ -548,6 +548,7 @@ def run_pipeline(args: Dict[str, Any]) -> Dict[str, Any]:
         if output_file:
             try:
                 import os
+                output_file = os.path.expandvars(output_file)
                 os.makedirs(os.path.dirname(os.path.abspath(output_file)), exist_ok=True)
                 with open(output_file, "w", encoding="utf-8") as fh:
                     fh.write(html_report)
