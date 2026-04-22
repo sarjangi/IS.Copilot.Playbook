@@ -33,8 +33,8 @@ You need the following before calling any tool. **Never infer, guess, or default
 - **pbi_number** — ALWAYS ask for ADO repos; never reuse a value from context
 
 **If the user has already given the repo URL**, infer its platform before asking:
-- URL contains `github.com` → GitHub repo → show the GitHub form below, skip PBI question
-- URL contains `dev.azure.com` or `visualstudio.com` → ADO repo → show the ADO form below (no PAT needed), ask for PBI number
+- URL contains `github.com` → GitHub repo → **ONLY** show the GitHub form below, skip PBI question. Do NOT show any ADO credential instructions.
+- URL contains `dev.azure.com` or `visualstudio.com` → ADO repo → **ONLY** show the ADO form below (no PAT needed), ask for PBI number. Do NOT show any `gh auth login` instructions.
 
 Present all missing questions **together as a single numbered list** in one message, then wait for the user to answer all of them at once.
 
@@ -66,8 +66,8 @@ Present all missing questions **together as a single numbered list** in one mess
    *(e.g. `main`, `develop`, `master`)*
 3. **PBI number** — Work item # for branch naming and commit prefix *(e.g. `12345`)*
 
-   > No token needed — your existing git credentials are used automatically (the same ones git uses when you clone or push).
-   > If you get an auth error, run `git clone <any-ado-repo-url>` once in a terminal to refresh the credential cache.
+   > No token needed — your existing Azure DevOps credentials are used automatically (the same ones git uses when you clone or push ADO repos).
+   > If you get an auth error, run `git clone https://dev.azure.com/Vancity/Vancity/_git/IS.Copilot.Playbook` once in a terminal to refresh the credential cache.
 
 ---
 
