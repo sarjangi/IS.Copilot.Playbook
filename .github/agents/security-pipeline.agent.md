@@ -47,11 +47,8 @@ Present all missing questions **together as a single numbered list** in one mess
    *(e.g. `https://github.com/org/repo`)*
 2. **Source branch to scan** — The existing branch you want scanned (the agent will create a *new* fix branch from it automatically)
    *(e.g. `main`, `develop`, `master`)*
-3. **GitHub authentication** — The pipeline reads your credentials from the GitHub CLI automatically. If you haven't already, run this once in a terminal (outside chat):
-   ```
-   gh auth login
-   ```
-   Then come back here — no token needs to be pasted. If `gh` is not installed, set the `GH_TOKEN` environment variable in your terminal session before starting.
+
+> **Auth note (no answer needed):** Credentials are read automatically from the GitHub CLI. If you hit an auth error later, run `gh auth login` once in a terminal — no token needs to be pasted here.
 
 ---
 
@@ -80,11 +77,9 @@ Present all missing questions **together as a single numbered list** in one mess
    *(e.g. `https://dev.azure.com/Vancity/Vancity/_git/Isl.Services.Crm` or `https://github.com/org/repo`)*
 2. **Source branch to scan** — The existing branch you want scanned (the agent will create a *new* fix branch from it automatically)
    *(e.g. `main`, `develop`, `master`)*
-3. **Authentication** — no token needed in chat for either platform
-   - **GitHub:** Run `gh auth login` once in a terminal
-   - **Azure DevOps:** Your git credentials are used automatically (cached by Git Credential Manager when you use any ADO repo)
-   - If auth fails, run `git clone <repo-url>` once in a terminal to refresh the cache
-4. **PBI number** — *(ADO only)* Work item # for branch naming *(e.g. `12345`; omit for GitHub)*
+3. **PBI number** — *(ADO only)* Work item # for branch naming *(e.g. `12345`; omit for GitHub)*
+
+> **Auth note (no answer needed):** No token needed — credentials are read automatically. GitHub: via `gh auth login`. ADO: via Git Credential Manager. If auth fails later, run `git clone <repo-url>` once in a terminal to refresh the cache.
 
 ---
 
