@@ -90,7 +90,7 @@ _PATTERNS: List[Tuple[re.Pattern[str], str, str, str, str, str]] = [
         "regex",
     ),
     (
-        re.compile(r"\b(eval|exec)\s*\("),
+        re.compile(r"(?<![.\w])(eval|exec)\s*\("),
         "Dynamic code execution primitive detected",
         "HIGH",
         "CWE-94",
@@ -154,7 +154,7 @@ _PATTERNS: List[Tuple[re.Pattern[str], str, str, str, str, str]] = [
         "regex",
     ),
     (
-        re.compile(r"\.innerHTML\s*=\s*[^\n;]+"),
+        re.compile(r"\.innerHTML\s*=\s*(?!['\"]['\"]|null\b|undefined\b)[^\n;]+"),
         "Potential DOM XSS sink (.innerHTML assignment)",
         "MEDIUM",
         "CWE-79",
@@ -214,7 +214,11 @@ def _scan_file(file_path: Path) -> List[Dict[str, Any]]:
         ]
 
     for line_number, line in enumerate(lines, start=1):
-        if not line.strip():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        # Skip full-line comments — commented-out code should not generate findings
+        if stripped.startswith(('#', '//', '--', '/*', '*', '"""', "'''")):
             continue
 
         for pattern, issue, severity, cwe, category, source in _PATTERNS:
