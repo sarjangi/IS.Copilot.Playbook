@@ -106,18 +106,24 @@ def _resolve_github_token(provided_token: str) -> str:
 
     Priority:
     1. Explicitly provided token (passed in args) — used as-is.
-    2. GH_TOKEN env var — user explicitly set this; treat as intentional.
-    3. `gh auth token` — personal OAuth credentials via GitHub CLI; cross-repo
+    2. CROSS_REPO_TOKEN env var — repo secret set in IS.Copilot.Playbook settings;
+       fine-grained PAT with cross-repo push access. Preferred for GitHub Actions / cloud.
+    3. GH_TOKEN env var — user explicitly set this; treat as intentional.
+    4. `gh auth token` — personal OAuth credentials via GitHub CLI; cross-repo
        access, preferred over the auto-injected GITHUB_TOKEN.
-    4. GITHUB_TOKEN env var — last resort; auto-injected by VS Code / GitHub
+    5. GITHUB_TOKEN env var — last resort; auto-injected by VS Code / GitHub
        Actions and scoped only to the current repo, so it will fail if the
        target repo is different from the one that injected the token.
-    5. Empty string — caller decides whether to error out.
+    6. Empty string — caller decides whether to error out.
     """
     import os
     if provided_token:
         return provided_token
-    # GH_TOKEN is explicitly user-set — honour it first
+    # CROSS_REPO_TOKEN — fine-grained PAT stored as a repo secret
+    cross_repo_token = os.environ.get("CROSS_REPO_TOKEN", "").strip()
+    if cross_repo_token:
+        return cross_repo_token
+    # GH_TOKEN is explicitly user-set — honour it next
     gh_token = os.environ.get("GH_TOKEN", "").strip()
     if gh_token:
         return gh_token
