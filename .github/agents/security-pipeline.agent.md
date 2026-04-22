@@ -10,7 +10,6 @@ tools:
   - mcp_integration_p_sql_scanner
   - mcp_integration_p_repo_analyzer
   - mcp_integration_p_test_generator
-user-invocable: false
 ---
 
 You are the **Security Pipeline Agent** for the Integration Platform.
