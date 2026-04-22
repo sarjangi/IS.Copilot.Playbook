@@ -365,6 +365,52 @@ def _build_comment_line(original_line: str, message: str, file_path: str = "") -
     return " " * indent + prefix + " " + message + "\n"
 
 
+def _is_inside_multiline_string(lines: List[str], zero_based_idx: int) -> bool:
+    """Return True if line[zero_based_idx] is inside a triple-quoted string or a
+    line-continuation block, so that inserting a comment there would break syntax.
+
+    Scans from the start of the file up to (but not including) the target line,
+    tracking triple-quote open/close state and backslash continuations.
+    """
+    in_triple = False
+    triple_char = ""
+    for i, line in enumerate(lines[:zero_based_idx]):
+        stripped = line.rstrip("\n")
+        # Backslash continuation — next line is a logical continuation
+        if not in_triple and stripped.endswith("\\"):
+            # If the *target* line is the direct continuation of this line, skip it
+            if i + 1 == zero_based_idx:
+                return True
+        # Track triple-quote open/close
+        j = 0
+        while j < len(stripped):
+            if not in_triple:
+                for delim in ('"""', "'''"):
+                    if stripped[j:j+3] == delim:
+                        in_triple = True
+                        triple_char = delim
+                        j += 3
+                        break
+                else:
+                    # Skip single-quoted strings quickly
+                    if stripped[j] in ('"', "'"):
+                        q = stripped[j]
+                        j += 1
+                        while j < len(stripped) and stripped[j] != q:
+                            if stripped[j] == "\\":
+                                j += 1
+                            j += 1
+                    j += 1
+            else:
+                if stripped[j:j+3] == triple_char:
+                    in_triple = False
+                    triple_char = ""
+                    j += 3
+                else:
+                    j += 1
+    return in_triple
+
+
 # ---------------------------------------------------------------------------
 # Multi-finding transform application
 # ---------------------------------------------------------------------------
@@ -498,6 +544,8 @@ def _apply_all_transforms(
                         "never build SQL from user-controlled strings"
                     )
                 message = f"TODO [CWE-89]: {advice}"
+                if _is_inside_multiline_string(working, idx):
+                    continue
                 comment_line = _build_comment_line(original, message, file_path)
                 working.insert(idx, comment_line)
                 applied.append({
@@ -533,6 +581,8 @@ def _apply_all_transforms(
                     "SECURITY [CWE-798]: Hardcoded secret detected. "
                     "Replace with os.environ.get('SECRET_NAME') or an Azure Key Vault reference."
                 )
+                if _is_inside_multiline_string(working, idx):
+                    continue
                 comment_line = _build_comment_line(original, message, file_path)
                 working.insert(idx, comment_line)
                 applied.append({
@@ -568,6 +618,8 @@ def _apply_all_transforms(
                     "SECURITY [CWE-78/94]: Dynamic command/code execution detected. "
                     "Validate all inputs; avoid eval/exec; prefer subprocess with shell=False."
                 )
+                if _is_inside_multiline_string(working, idx):
+                    continue
                 comment_line = _build_comment_line(original, message, file_path)
                 working.insert(idx, comment_line)
                 applied.append({
@@ -584,6 +636,8 @@ def _apply_all_transforms(
 
         else:
             # Comment-based transforms — insert a warning above the flagged line
+            if _is_inside_multiline_string(working, idx):
+                continue
             message = _COMMENT_MESSAGES.get(transform_key, "SECURITY: Review this line.")
             comment_line = _build_comment_line(original, message, file_path)
             working.insert(idx, comment_line)
