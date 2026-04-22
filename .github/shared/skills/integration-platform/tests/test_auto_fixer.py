@@ -893,6 +893,30 @@ class TestSqlScannerFalsePositives(unittest.TestCase):
         self.assertGreater(len(sql_findings), 0,
                            "Python UPDATE...SET f-string SQL not detected")
 
+    # --- Regression: asyncio.sleep / time.sleep must NOT be flagged as SQL injection ---
+
+    def test_asyncio_sleep_not_flagged_as_sql(self):
+        """asyncio.sleep(0.1) contains 'SLEEP(' but is NOT a SQL injection indicator."""
+        lines = "while True:\n    await asyncio.sleep(0.1)\n"
+        findings = self._scan(lines, "worker.py")
+        sql_findings = [f for f in findings if f.get("cwe") == "CWE-89"]
+        self.assertEqual(sql_findings, [],
+                         f"asyncio.sleep wrongly flagged as SQL injection: {sql_findings}")
+
+    def test_time_sleep_not_flagged_as_sql(self):
+        """time.sleep(5) must not be flagged — the dot prefix distinguishes it."""
+        findings = self._scan("time.sleep(5)\n", "poller.py")
+        sql_findings = [f for f in findings if f.get("cwe") == "CWE-89"]
+        self.assertEqual(sql_findings, [], f"time.sleep wrongly flagged: {sql_findings}")
+
+    def test_sql_sleep_in_string_still_flagged(self):
+        """A bare SLEEP( outside a method call in a string context must still be caught."""
+        line = 'payload = "1; SLEEP(5)-- "\n'
+        findings = self._scan(line, "test_input.py")
+        sql_findings = [f for f in findings if f.get("cwe") == "CWE-89"]
+        self.assertGreater(len(sql_findings), 0,
+                           "SQL SLEEP( in string payload was not detected")
+
 
 class TestODataInjectionScanner(unittest.TestCase):
     """Regression suite for OData $filter injection detection (Dynamics 365 / SharePoint pattern)."""

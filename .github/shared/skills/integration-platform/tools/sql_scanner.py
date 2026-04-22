@@ -236,7 +236,7 @@ _INDICATOR_PATTERNS = [
         "Ensure this string value is not passed to a SQL query without parameterization."
     ),
     (
-        r"(?:SLEEP\s*\(\s*\d+|WAITFOR\s+DELAY\s*'|BENCHMARK\s*\(\s*\d+)",
+        r"(?:(?<![.\w])SLEEP\s*\(\s*\d+|WAITFOR\s+DELAY\s*'|BENCHMARK\s*\(\s*\d+)",
         "Time-based blind SQL injection indicator (SLEEP/WAITFOR/BENCHMARK)",
         "CRITICAL", "CWE-89",
         "Input containing SQL time-delay functions must never reach a query. Validate and reject."
