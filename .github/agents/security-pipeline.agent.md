@@ -27,12 +27,12 @@ Be concise. Ask only what you don't already have. Never ask for things you can i
 
 ### Step 1 — Collect the minimum required inputs
 
-You need the following before calling any tool. **Never infer, guess, or default branch or PBI from workspace context, conversation history, or any other source** — always ask the user explicitly.
+You need the following before calling any tool. **Never infer, guess, or default branch or PBI from the current workspace git state** — always get explicit values from the user.
 
 **Required inputs:**
-- **repo_url** — may be provided by the user in their message; if not, ask
-- **branch** — ALWAYS ask; never infer from the current workspace or git state
-- **pbi_number** — ALWAYS ask for ADO repos; never reuse a value from context
+- **repo_url** — use if already provided in the user's message or conversation; otherwise ask
+- **branch** — use if already stated by the user in this conversation; never default to the current workspace branch
+- **pbi_number** — use if already stated by the user in this conversation; required for ADO repos
 
 **If the user has already given the repo URL**, infer its platform before asking:
 - URL contains `github.com` → GitHub repo → **ONLY** show the GitHub form below, skip PBI question. Do NOT show any ADO credential instructions.
@@ -85,7 +85,7 @@ Present all missing questions **together as a single numbered list** in one mess
 
 ---
 
-Wait for the user's reply before proceeding.
+Once the user provides all required values (in any order, across one or more messages), proceed immediately to Step 2 — never ask the same question twice.
 
 **Do not ask for** mode, scan profile, or branch name for the fix branch — those are fixed defaults:
 - Mode: always `run` (scan + fix + PR)
