@@ -78,6 +78,35 @@ _COMMENT_MESSAGES: Dict[str, str] = {
     ),
 }
 
+# Explanatory comments inserted *above* every auto-fixed line so PR reviewers
+# know exactly why the change was made and which CWE it addresses.
+_FIX_REASON_COMMENTS: Dict[str, str] = {
+    "yaml_load_to_safe_load": (
+        "SECURITY FIX [CWE-502]: yaml.load() can execute arbitrary Python code via unsafe "
+        "deserialization. Changed to yaml.safe_load() which only constructs safe Python objects."
+    ),
+    "requests_verify_false": (
+        "SECURITY FIX [CWE-295]: TLS certificate verification must not be disabled — "
+        "verify=False allows man-in-the-middle attacks. Removed the insecure kwarg."
+    ),
+    "weak_hash_upgrade": (
+        "SECURITY FIX [CWE-327]: MD5/SHA-1 are cryptographically broken and must not be used "
+        "for security-sensitive purposes. Upgraded to SHA-256."
+    ),
+    "sql_parameterize": (
+        "SECURITY FIX [CWE-89]: Replaced string-interpolated SQL with a parameterized query. "
+        "Never build SQL from user-controlled strings — use placeholders and bind parameters."
+    ),
+    "hardcoded_credential_to_env": (
+        "SECURITY FIX [CWE-798]: Hardcoded secret replaced with an environment variable lookup. "
+        "Secrets must never be committed to source — use a secrets manager or env vars."
+    ),
+    "command_shell_fix": (
+        "SECURITY FIX [CWE-78]: shell=True passes the command to the OS shell and enables "
+        "command injection. Changed to shell=False — pass a list of arguments instead."
+    ),
+}
+
 
 def _classify_finding(finding: Dict[str, Any]) -> Optional[str]:
     """Return the transform key for a finding, or None if not auto-fixable."""
@@ -454,7 +483,12 @@ def _apply_all_transforms(
         if transform_key == "yaml_load_to_safe_load":
             new_line = _transform_yaml_load(original)
             if new_line is not None:
-                working[idx] = new_line
+                if not _is_inside_multiline_string(working, idx):
+                    _cmt = _build_comment_line(original, _FIX_REASON_COMMENTS[transform_key], file_path)
+                    working.insert(idx, _cmt)
+                    working[idx + 1] = new_line
+                else:
+                    working[idx] = new_line
                 applied.append({
                     "file": file_path,
                     "line": line_num,
@@ -470,7 +504,12 @@ def _apply_all_transforms(
         elif transform_key == "requests_verify_false":
             new_line = _transform_requests_verify(original)
             if new_line is not None:
-                working[idx] = new_line
+                if not _is_inside_multiline_string(working, idx):
+                    _cmt = _build_comment_line(original, _FIX_REASON_COMMENTS[transform_key], file_path)
+                    working.insert(idx, _cmt)
+                    working[idx + 1] = new_line
+                else:
+                    working[idx] = new_line
                 applied.append({
                     "file": file_path,
                     "line": line_num,
@@ -486,7 +525,12 @@ def _apply_all_transforms(
         elif transform_key == "weak_hash_upgrade":
             new_line = _transform_weak_hash(original)
             if new_line is not None:
-                working[idx] = new_line
+                if not _is_inside_multiline_string(working, idx):
+                    _cmt = _build_comment_line(original, _FIX_REASON_COMMENTS[transform_key], file_path)
+                    working.insert(idx, _cmt)
+                    working[idx + 1] = new_line
+                else:
+                    working[idx] = new_line
                 applied.append({
                     "file": file_path,
                     "line": line_num,
@@ -502,7 +546,12 @@ def _apply_all_transforms(
         elif transform_key == "sql_parameterize":
             new_line = _transform_sql_injection(original, finding)
             if new_line is not None:
-                working[idx] = new_line
+                if not _is_inside_multiline_string(working, idx):
+                    _cmt = _build_comment_line(original, _FIX_REASON_COMMENTS[transform_key], file_path)
+                    working.insert(idx, _cmt)
+                    working[idx + 1] = new_line
+                else:
+                    working[idx] = new_line
                 applied.append({
                     "file": file_path,
                     "line": line_num,
@@ -563,7 +612,12 @@ def _apply_all_transforms(
         elif transform_key == "hardcoded_credential_to_env":
             new_line = _transform_hardcoded_credential(original, finding)
             if new_line is not None:
-                working[idx] = new_line
+                if not _is_inside_multiline_string(working, idx):
+                    _cmt = _build_comment_line(original, _FIX_REASON_COMMENTS[transform_key], file_path)
+                    working.insert(idx, _cmt)
+                    working[idx + 1] = new_line
+                else:
+                    working[idx] = new_line
                 applied.append({
                     "file": file_path,
                     "line": line_num,
@@ -600,7 +654,12 @@ def _apply_all_transforms(
         elif transform_key == "command_shell_fix":
             new_line = _transform_command_injection(original)
             if new_line is not None:
-                working[idx] = new_line
+                if not _is_inside_multiline_string(working, idx):
+                    _cmt = _build_comment_line(original, _FIX_REASON_COMMENTS[transform_key], file_path)
+                    working.insert(idx, _cmt)
+                    working[idx + 1] = new_line
+                else:
+                    working[idx] = new_line
                 applied.append({
                     "file": file_path,
                     "line": line_num,
