@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Security Report — sarjangi/data-dashboard — 2026-04-22</title>
+  <style>
+    :root {
+      --red: #dc2626; --orange: #d97706; --blue: #2563eb; --green: #16a34a;
+      --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb;
+      --gray-700: #374151; --gray-900: #111827;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: var(--gray-50); color: var(--gray-900); line-height: 1.6; }
+    header { background: var(--gray-900); color: #fff; padding: 2rem; }
+    header h1 { font-size: 1.5rem; }
+    header p { color: #9ca3af; margin-top: 0.25rem; font-size: 0.9rem; }
+    .container { max-width: 960px; margin: 2rem auto; padding: 0 1rem; }
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .card { background: #fff; border: 1px solid var(--gray-200); border-radius: 8px; padding: 1.25rem; text-align: center; }
+    .card .count { font-size: 2.5rem; font-weight: 700; }
+    .card .label { font-size: 0.8rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
+    .high .count { color: var(--red); }
+    .medium .count { color: var(--orange); }
+    .low .count { color: var(--blue); }
+    .fixed .count { color: var(--green); }
+    section { margin-bottom: 2rem; }
+    h2 { font-size: 1.1rem; border-bottom: 2px solid var(--gray-200); padding-bottom: 0.5rem; margin-bottom: 1rem; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; border: 1px solid var(--gray-200); font-size: 0.9rem; }
+    th { background: var(--gray-100); text-align: left; padding: 0.75rem 1rem; font-size: 0.8rem; text-transform: uppercase; color: #6b7280; letter-spacing: 0.05em; }
+    td { padding: 0.75rem 1rem; border-top: 1px solid var(--gray-200); vertical-align: top; }
+    tr:hover td { background: var(--gray-50); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+    .badge-high { background: #fee2e2; color: var(--red); }
+    .badge-medium { background: #fef3c7; color: var(--orange); }
+    .badge-low { background: #dbeafe; color: var(--blue); }
+    .badge-fixed { background: #dcfce7; color: var(--green); }
+    code { background: var(--gray-100); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.85rem; font-family: monospace; }
+    pre { background: var(--gray-900); color: #e5e7eb; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.82rem; margin-top: 0.5rem; }
+    .note { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 1rem; font-size: 0.9rem; }
+    footer { text-align: center; color: #9ca3af; font-size: 0.8rem; padding: 2rem 0; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>🔐 Security Scan Report</h1>
+  <p>Repository: <strong>sarjangi/data-dashboard</strong> &nbsp;·&nbsp; Branch: <strong>main</strong> &nbsp;·&nbsp; Scan date: <strong>2026-04-22</strong></p>
+</header>
+
+<div class="container">
+
+  <!-- Summary Cards -->
+  <div class="summary-grid">
+    <div class="card high"><div class="count">5</div><div class="label">High CVEs</div></div>
+    <div class="card medium"><div class="count">3</div><div class="label">Medium CVEs</div></div>
+    <div class="card low"><div class="count">8</div><div class="label">Low / Info</div></div>
+    <div class="card fixed"><div class="count">6</div><div class="label">Fixed in patch</div></div>
+  </div>
+
+  <!-- HIGH findings -->
+  <section>
+    <h2>🔴 High Severity — Dependency Vulnerabilities</h2>
+    <table>
+      <thead>
+        <tr><th>Severity</th><th>Package (affected)</th><th>CVE / ID</th><th>Description</th><th>Fix</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-high">HIGH</span></td>
+          <td><code>python-multipart 0.0.12</code></td>
+          <td>CVE-2024-53981</td>
+          <td>Form data parsing skips line breaks before the first boundary, allowing boundary bypass.</td>
+          <td><span class="badge badge-fixed">✔ 0.0.26</span></td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-high">HIGH</span></td>
+          <td><code>python-multipart 0.0.12</code></td>
+          <td>CVE-2026-24486</td>
+          <td>Path Traversal via non-default <code>UPLOAD_DIR</code> + <code>UPLOAD_KEEP_FILENAME=True</code> configuration.</td>
+          <td><span class="badge badge-fixed">✔ 0.0.26</span></td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-high">HIGH</span></td>
+          <td><code>python-multipart 0.0.12</code></td>
+          <td>CVE-2026-40347</td>
+          <td>Denial-of-Service via crafted multipart/form-data with large preamble or epilogue sections.</td>
+          <td><span class="badge badge-fixed">✔ 0.0.26</span></td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-high">HIGH</span></td>
+          <td><code>python-jose 3.3.0</code></td>
+          <td>PYSEC-2024-232</td>
+          <td>Algorithm confusion with OpenSSH ECDSA keys allows JWT token forgery (similar to CVE-2022-29217).</td>
+          <td><span class="badge badge-fixed">✔ 3.4.0</span></td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-high">HIGH</span></td>
+          <td><code>python-jose 3.3.0</code></td>
+          <td>PYSEC-2024-233</td>
+          <td>Unbounded resource consumption during JWE decode via crafted token — Denial of Service.</td>
+          <td><span class="badge badge-fixed">✔ 3.4.0</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- MEDIUM findings -->
+  <section>
+    <h2>🟡 Medium Severity — Dependency Vulnerabilities</h2>
+    <table>
+      <thead>
+        <tr><th>Severity</th><th>Package (affected)</th><th>CVE / ID</th><th>Description</th><th>Fix</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-medium">MED</span></td>
+          <td><code>starlette 0.38.6</code><br/><small>(transitive via fastapi 0.115.0)</small></td>
+          <td>CVE-2024-47874</td>
+          <td>Multipart form fields without a filename are buffered in memory with no size limit, enabling memory exhaustion.</td>
+          <td><span class="badge badge-fixed">✔ fastapi 0.136.0</span></td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-medium">MED</span></td>
+          <td><code>starlette 0.38.6</code><br/><small>(transitive via fastapi 0.115.0)</small></td>
+          <td>CVE-2025-54121</td>
+          <td>Large file multipart uploads can exceed spool size and cause Denial of Service.</td>
+          <td><span class="badge badge-fixed">✔ fastapi 0.136.0</span></td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-medium">MED</span></td>
+          <td><code>python-dotenv 1.0.1</code></td>
+          <td>CVE-2026-28684</td>
+          <td><code>set_key()</code> and <code>unset_key()</code> follow symbolic links when rewriting <code>.env</code> files, allowing a local attacker to overwrite arbitrary files.</td>
+          <td><span class="badge badge-fixed">✔ 1.2.2</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- LOW findings -->
+  <section>
+    <h2>🔵 Low / Informational</h2>
+    <table>
+      <thead>
+        <tr><th>Severity</th><th>Package / Rule</th><th>ID</th><th>Description</th><th>Fix</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-low">LOW</span></td>
+          <td><code>pytest 8.3.4</code></td>
+          <td>CVE-2025-71176</td>
+          <td>Predictable <code>/tmp/pytest-of-{user}</code> directories allow local Denial of Service.</td>
+          <td><span class="badge badge-fixed">✔ 9.0.3</span></td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-low">LOW</span></td>
+          <td><code>black 24.10.0</code></td>
+          <td>CVE-2026-32274</td>
+          <td>Cache file path derived from <code>--python-cell-magics</code> option; exploitable locally.</td>
+          <td><span class="badge badge-fixed">✔ 26.3.1</span></td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-low">LOW</span></td>
+          <td>docker-compose.yml</td>
+          <td>Config</td>
+          <td>Default weak password <code>analytics123</code> for PostgreSQL. Added warning comment; requires manual rotation before production use.</td>
+          <td><span class="badge badge-fixed">✔ Comment added</span></td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-low">LOW</span></td>
+          <td>B311 — seed_data.py</td>
+          <td>Bandit</td>
+          <td><code>random</code> module used in data generation script (not for cryptographic purposes). Acceptable false positive.</td>
+          <td>N/A — accepted</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-low">LOW</span></td>
+          <td>B101 — test files</td>
+          <td>Bandit</td>
+          <td><code>assert</code> used in pytest test files — standard pytest pattern. Acceptable false positive.</td>
+          <td>N/A — accepted</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Patch instructions -->
+  <section>
+    <h2>📋 How to Apply the Fix</h2>
+    <p>A ready-to-apply patch file is included alongside this report. Apply it to the <code>sarjangi/data-dashboard</code> repository with:</p>
+    <pre>git clone https://github.com/sarjangi/data-dashboard.git
+cd data-dashboard
+git checkout -b security-fixes-20260422
+git apply security-fixes-20260422.patch
+git push origin security-fixes-20260422
+# Then open a Pull Request on GitHub</pre>
+    <br/>
+    <div class="note">
+      ⚠️ <strong>After merging:</strong> Verify your application still works correctly with the updated FastAPI version — while the API surface is backward-compatible, review any deprecated patterns in the <a href="https://fastapi.tiangolo.com/release-notes/" target="_blank">FastAPI changelog</a>.
+    </div>
+  </section>
+
+  <!-- Changes summary -->
+  <section>
+    <h2>✅ Changes Applied in Patch</h2>
+    <table>
+      <thead>
+        <tr><th>File</th><th>Change</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>backend/requirements.txt</code></td><td><code>fastapi</code> 0.115.0 → 0.136.0</td></tr>
+        <tr><td><code>backend/requirements.txt</code></td><td><code>python-multipart</code> 0.0.12 → 0.0.26</td></tr>
+        <tr><td><code>backend/requirements.txt</code></td><td><code>python-jose[cryptography]</code> 3.3.0 → 3.4.0</td></tr>
+        <tr><td><code>backend/requirements.txt</code></td><td><code>python-dotenv</code> 1.0.1 → 1.2.2</td></tr>
+        <tr><td><code>backend/requirements.txt</code></td><td><code>pytest</code> 8.3.4 → 9.0.3</td></tr>
+        <tr><td><code>backend/requirements.txt</code></td><td><code>black</code> 24.10.0 → 26.3.1</td></tr>
+        <tr><td><code>backend/docker-compose.yml</code></td><td>Added security warning comment on <code>POSTGRES_PASSWORD</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+</div>
+<footer>Generated by Copilot Security Pipeline · sarjangi/IS.Copilot.Playbook · 2026-04-22</footer>
+</body>
+</html>
