@@ -153,11 +153,13 @@ Input arguments:
 | `action` | Yes | `dry_run` or `run` |
 | `repo_url` | Yes | HTTPS repository URL |
 | `branch` | No | Branch to scan (default: repository default branch) |
-| `auth_token` | For `run` / private repos | PAT with repo read+write scope |
+| `auth_token` | No | PAT — only needed if no `CROSS_REPO_TOKEN` env var and no cached `gh` CLI token |
 | `base_branch` | No | PR target branch (default: `main`) |
 | `scan_profile` | No | `quick` (default), `full`, or `secrets` |
 | `pr_title` | No | Override auto-generated PR title |
 | `pr_body` | No | Extra text appended to PR description |
+| `pbi_number` | No | Azure DevOps work item number — used in branch name and commit prefix |
+| `output_file` | No | Path to write the HTML report to disk (e.g. `security-report.html`) |
 
 Response fields:
 | Field | Description |
@@ -172,13 +174,17 @@ Response fields:
 | `pr_url` | PR URL (`run` mode only) |
 | `branch_name` | Pushed branch name (`run` mode only) |
 
-**Auto-fix transforms** (applied for `run` mode):
+**Auto-fix transforms** (applied for `run` mode — a `SECURITY FIX [CWE-xxx]` comment is inserted above every changed line so PR reviewers know the reason):
 - `yaml.load(` → `yaml.safe_load(` — CWE-502 unsafe deserialization
 - `requests(... verify=False)` → remove `verify=False` — CWE-295 TLS bypass
-- Security comment markers added above `pickle`, weak hash, and credential usage
+- `hashlib.md5/sha1` → `hashlib.sha256` — CWE-327 weak hash
+- `shell=True` → `shell=False` — CWE-78 command injection
+- Hardcoded credential → `os.environ.get(...)` / `process.env.VAR` / `Environment.GetEnvironmentVariable(...)` — CWE-798
+- SQL f-string / concat patterns → parameterized query with `?` placeholder — CWE-89 (where pattern recognised; advisory comment inserted otherwise)
 
-**Manual review required** (documented but never auto-fixed):
-- SQL injection (CWE-89) — requires parameterized query refactoring
+**Manual review required** (advisory comment inserted but code not changed):
+- SQL injection patterns the auto-fixer cannot safely rewrite (complex ORM calls, multi-line builders)
+- `pickle.load`, `eval()`, `exec()` — too context-dependent to auto-fix safely
 
 Example — dry run:
 ```json
@@ -206,6 +212,15 @@ Example — full run with PR:
 }
 ```
 
+**Authentication resolution order (no manual token needed for most cases):**
+1. `auth_token` argument (explicit, takes priority)
+2. `CROSS_REPO_TOKEN` environment variable
+3. `GH_TOKEN` environment variable  
+4. `gh auth token` — GitHub CLI cached token (local runs)
+5. `GITHUB_TOKEN` — GitHub Actions injected token (last resort)
+
+For Azure DevOps: Git Credential Manager (GCM) handles auth automatically on Windows — no token required.
+
 ### Interactive agent: `security-pipeline`
 
 The agent is at `.github/agents/security-pipeline.agent.md` — VS Code discovers it automatically from that location. Invoke it from GitHub Copilot Chat by selecting **security-pipeline** from the agent picker, or by typing `@security-pipeline` in the chat input.
@@ -223,6 +238,31 @@ Both the `pipeline` MCP tool and the `security-pipeline` agent call the same und
 | **Best for** | Scripting / automation where you already know all args | Interactive use, first-time runs, reviewing results |
 
 **Rule of thumb:** use the agent for interactive exploration and the tool directly when calling from a script or another tool.
+
+### Using with GitHub Copilot Cloud Agent
+
+The MCP server can run on the GitHub Actions runner (used by Copilot cloud agent at github.com/agents). Three setup steps are required:
+
+1. **Install deps on the runner** — `.github/workflows/copilot-setup-steps.yml` handles this automatically (already committed).
+
+2. **Add MCP config** — In your repo: Settings → Copilot → Cloud agent, paste:
+```json
+{
+  "mcpServers": {
+    "integration-platform": {
+      "type": "local",
+      "command": "python",
+      "args": [".github/shared/skills/integration-platform/integration_platform_mcp_server.py"],
+      "env": {
+        "CROSS_REPO_TOKEN": "$COPILOT_MCP_CROSS_REPO_TOKEN"
+      },
+      "tools": ["*"]
+    }
+  }
+}
+```
+
+3. **Add the secret** — Settings → Environments → `copilot` → Add secret: `COPILOT_MCP_CROSS_REPO_TOKEN` = your fine-grained PAT (Contents + PR write on target repos).
 
 ## Installation
 
@@ -499,9 +539,9 @@ integration-platform/
 │   ├── pr_creator.py                   # Branch push + PR creator (GitHub / AzDO)
 │   └── pipeline.py                     # End-to-end orchestrator
 ├── tests/
-│   ├── test_auto_fixer.py              # 33 tests
-│   ├── test_pr_creator.py              # 30 tests
-│   ├── test_pipeline.py                # 32 tests
+│   ├── test_auto_fixer.py              # 97 tests
+│   ├── test_pr_creator.py              # 35 tests
+│   ├── test_pipeline.py                # 35 tests
 │   └── test_test_generator.py          # 5 tests
 ├── examples/
 │   ├── README.md                       # Usage examples documentation
@@ -533,25 +573,23 @@ integration-platform/
 - In-process Python AST scanning (no external scanner subprocess)
 - CWE mapping and severity-based reporting
 
-### ✅ Completed (v1.1)
-- End-to-end security pipeline (`pipeline` tool)
-  - Auto-fix transforms: `yaml.load→yaml.safe_load` (CWE-502), `verify=False` removal (CWE-295), security comment markers
-  - Unified diff / patch output for all findings
-  - Inline HTML report per run
-  - GitHub + Azure DevOps PR creation (auto-detected from URL)
-- `security-pipeline` interactive agent for guided pipeline runs
-- 100 unit tests across all tool modules
+### ✅ Completed (v1.2)
+- All 6 auto-fix transforms now insert `SECURITY FIX [CWE-xxx]` reason comments above changed lines
+- Weak hash upgrade (MD5/SHA-1 → SHA-256, CWE-327)
+- Hardcoded credential → env var replacement (CWE-798, multi-language)
+- `shell=True` → `shell=False` (CWE-78)
+- SQL parameterization for f-string and concat patterns (CWE-89)
+- False positive fixes: `asyncio.sleep` no longer flagged as SQL `SLEEP()`, commented-out code skipped, `regex.exec()` excluded from CWE-94, empty `innerHTML` clearing excluded
+- Cloud agent support via `copilot-setup-steps.yml` and MCP config
+- `pbi_number` and `output_file` pipeline arguments
+- 172 unit tests across all tool modules
 
 ### 🚧 In Progress
 - Additional ecosystem support in test_generator
-- Advanced code quality metrics
 
 ### 📋 Planned
-- OWASP Top 10 vulnerability scanning
-- Performance profiling integration
-- Integration with Azure Pipelines
-- GitHub Actions support
-- Custom rule engine
+- Advanced code quality metrics
+- Integration with Azure Pipelines ticket auto-linking
 
 ## Contributing
 
