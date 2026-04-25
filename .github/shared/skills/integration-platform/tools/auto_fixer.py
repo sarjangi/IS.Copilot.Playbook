@@ -54,58 +54,35 @@ _TRANSFORM_LABELS: Dict[str, str] = {
 # CWE-89/798/78/94 now have best-effort transforms; only ORM-variant and XSS remain here.
 _SUGGESTION_ONLY_CWES = {"CWE-564", "CWE-345", "CWE-79"}
 
-# Security comment messages keyed by transform_key
-_COMMENT_MESSAGES: Dict[str, str] = {
-    "pickle_comment": (
-        "SECURITY [CWE-502]: pickle deserialization can execute arbitrary code. "
-        "Consider using json, msgpack, or a schema-validated alternative."
-    ),
-    "weak_hash_comment": (
-        "SECURITY [CWE-327]: MD5/SHA-1 are cryptographically weak. "
-        "Use hashlib.sha256() or stronger for security-sensitive purposes."
-    ),
-    "credential_comment": (
-        "SECURITY [CWE-798]: Hardcoded credential detected. "
-        "Replace with os.environ.get('YOUR_SECRET_NAME') or a secrets vault."
-    ),
-    "private_key_comment": (
-        "SECURITY [CWE-798]: Private key material should not be stored in source. "
-        "Use environment variables or a secrets manager (e.g. Azure Key Vault)."
-    ),
-    "command_injection_comment": (
-        "SECURITY [CWE-78/94]: Dynamic code/command execution detected. "
-        "Validate and sanitise all inputs; prefer allow-lists over deny-lists."
-    ),
+# CWE labels used in short inline comments
+_CWE_LABELS: Dict[str, str] = {
+    "pickle_comment":            "CWE-502",
+    "weak_hash_comment":         "CWE-327",
+    "credential_comment":        "CWE-798",
+    "private_key_comment":       "CWE-798",
+    "command_injection_comment": "CWE-78/94",
+    "yaml_load_to_safe_load":    "CWE-502",
+    "requests_verify_false":     "CWE-295",
+    "weak_hash_upgrade":         "CWE-327",
+    "sql_parameterize":          "CWE-89",
+    "hardcoded_credential_to_env": "CWE-798",
+    "command_shell_fix":         "CWE-78",
 }
 
-# Explanatory comments inserted *above* every auto-fixed line so PR reviewers
-# know exactly why the change was made and which CWE it addresses.
-_FIX_REASON_COMMENTS: Dict[str, str] = {
-    "yaml_load_to_safe_load": (
-        "SECURITY FIX [CWE-502]: yaml.load() can execute arbitrary Python code via unsafe "
-        "deserialization. Changed to yaml.safe_load() which only constructs safe Python objects."
-    ),
-    "requests_verify_false": (
-        "SECURITY FIX [CWE-295]: TLS certificate verification must not be disabled — "
-        "verify=False allows man-in-the-middle attacks. Removed the insecure kwarg."
-    ),
-    "weak_hash_upgrade": (
-        "SECURITY FIX [CWE-327]: MD5/SHA-1 are cryptographically broken and must not be used "
-        "for security-sensitive purposes. Upgraded to SHA-256."
-    ),
-    "sql_parameterize": (
-        "SECURITY FIX [CWE-89]: Replaced string-interpolated SQL with a parameterized query. "
-        "Never build SQL from user-controlled strings — use placeholders and bind parameters."
-    ),
-    "hardcoded_credential_to_env": (
-        "SECURITY FIX [CWE-798]: Hardcoded secret replaced with an environment variable lookup. "
-        "Secrets must never be committed to source — use a secrets manager or env vars."
-    ),
-    "command_shell_fix": (
-        "SECURITY FIX [CWE-78]: shell=True passes the command to the OS shell and enables "
-        "command injection. Changed to shell=False — pass a list of arguments instead."
-    ),
-}
+
+def _build_report_comment(transform_key: str, report_url: str = "") -> str:
+    """Return a short one-line comment referencing the security report.
+
+    When a report URL is available the comment is:
+        SECURITY FIX [CWE-xxx] — see: <url>
+    so reviewers can click through to the full explanation in the HTML report
+    instead of reading a long inline essay.
+    """
+    cwe = _CWE_LABELS.get(transform_key, "")
+    tag = f"SECURITY FIX [{cwe}]" if cwe else "SECURITY FIX"
+    if report_url:
+        return f"{tag} — see: {report_url}"
+    return tag
 
 
 def _classify_finding(finding: Dict[str, Any]) -> Optional[str]:
@@ -187,6 +164,104 @@ def _transform_weak_hash(line: str) -> Optional[str]:
     # (different API, risk of breaking)
     return new if new != line else None
 
+
+def _sanitize_odata_identifier_expr(expr: str, force_lower: bool = False) -> str:
+    base_expr = expr.strip()
+    if force_lower and not base_expr.endswith(".ToLower()"):
+        base_expr = f"{base_expr}.ToLower()"
+    return (
+        'System.Text.RegularExpressions.Regex.Replace('
+        f'{base_expr}, @"[^A-Za-z0-9_]", "")'
+    )
+
+
+def _escape_odata_value_expr(expr: str) -> str:
+    base_expr = expr.strip()
+    return f'System.Uri.EscapeDataString({base_expr}.Replace("\'", "\'\'"))'
+
+
+def _transform_csharp_odata(line: str) -> Optional[str]:
+    def _render_cs(prefix_indent: str, statement_prefix: str, body: str) -> str:
+        return f'{prefix_indent}{statement_prefix}$"{body}";\n'
+
+    m = re.match(
+        r'^(\s*)(?:(?:var|string)\s+)?(\w+)\s*=\s*\$["\'](.+?)["\'];?\s*$',
+        line,
+    )
+    if m:
+        indent, var_name, body = m.groups()
+        statement_prefix = f"var {var_name} = "
+
+        filter_match = re.match(
+            r'^(.*?\$(?:filter))=\{([^{}]+)\}\s+([A-Za-z]{2,10})\s+\'\{([^{}]+)\}\'(.*)$',
+            body,
+        )
+        if filter_match:
+            prefix, field_expr, operator, value_expr, suffix = filter_match.groups()
+            safe_field = _sanitize_odata_identifier_expr(field_expr, force_lower=True)
+            safe_value = _escape_odata_value_expr(value_expr)
+            body = f"{prefix}={{{safe_field}}} {operator} '" + f"{{{safe_value}}}" + f"'{suffix}"
+            return _render_cs(indent, statement_prefix, body)
+
+        search_match = re.match(r'^(.*?\$(?:search))=\{([^{}]+)\}(.*)$', body)
+        if search_match:
+            prefix, value_expr, suffix = search_match.groups()
+            safe_value = f'System.Uri.EscapeDataString({value_expr.strip()})'
+            return _render_cs(indent, statement_prefix, f"{prefix}={{{safe_value}}}{suffix}")
+
+        orderby_match = re.match(r'^(.*?\$(?:orderby))=\{([^{}]+)\}(.*)$', body)
+        if orderby_match:
+            prefix, field_expr, suffix = orderby_match.groups()
+            safe_field = _sanitize_odata_identifier_expr(field_expr, force_lower=False)
+            return _render_cs(indent, statement_prefix, f"{prefix}={{{safe_field}}}{suffix}")
+
+    m_return = re.match(r'^(\s*)(return\s+)\$["\'](.+?)["\'];?\s*$', line)
+    if m_return:
+        indent, statement_prefix, body = m_return.groups()
+
+        filter_match = re.match(
+            r'^(.*?\$(?:filter))=\{([^{}]+)\}\s+([A-Za-z]{2,10})\s+\'\{([^{}]+)\}\'(.*)$',
+            body,
+        )
+        if filter_match:
+            prefix, field_expr, operator, value_expr, suffix = filter_match.groups()
+            safe_field = _sanitize_odata_identifier_expr(field_expr, force_lower=True)
+            safe_value = _escape_odata_value_expr(value_expr)
+            body = f"{prefix}={{{safe_field}}} {operator} '" + f"{{{safe_value}}}" + f"'{suffix}"
+            return _render_cs(indent, statement_prefix, body)
+
+        search_match = re.match(r'^(.*?\$(?:search))=\{([^{}]+)\}(.*)$', body)
+        if search_match:
+            prefix, value_expr, suffix = search_match.groups()
+            safe_value = f'System.Uri.EscapeDataString({value_expr.strip()})'
+            return _render_cs(indent, statement_prefix, f"{prefix}={{{safe_value}}}{suffix}")
+
+        orderby_match = re.match(r'^(.*?\$(?:orderby))=\{([^{}]+)\}(.*)$', body)
+        if orderby_match:
+            prefix, field_expr, suffix = orderby_match.groups()
+            safe_field = _sanitize_odata_identifier_expr(field_expr, force_lower=False)
+            return _render_cs(indent, statement_prefix, f"{prefix}={{{safe_field}}}{suffix}")
+
+    concat_match = re.match(
+        r'^(\s*)(?:(?:var|string)\s+)?(\w+)\s*=\s*"([^\"]*\$(?:filter|search|orderby)[^\"]*)"\s*\+\s*(\w+)\s*\+\s*"([^\"]*)";?\s*$',
+        line,
+    )
+    if concat_match:
+        indent, var_name, prefix, value_expr, suffix = concat_match.groups()
+        if "$filter=" in prefix and "'" in prefix and "'" in suffix:
+            safe_value = _escape_odata_value_expr(value_expr)
+            return (
+                f'{indent}var {var_name} = "{prefix}" + {safe_value} + "{suffix}";\n'
+            )
+        if "$search=" in prefix:
+            safe_value = f'System.Uri.EscapeDataString({value_expr})'
+            return f'{indent}var {var_name} = "{prefix}" + {safe_value} + "{suffix}";\n'
+        if "$orderby=" in prefix:
+            safe_value = _sanitize_odata_identifier_expr(value_expr, force_lower=False)
+            return f'{indent}var {var_name} = "{prefix}" + {safe_value} + "{suffix}";\n'
+
+    return None
+
 def _transform_sql_injection(line: str, finding: Optional[Dict] = None) -> Optional[str]:
     """Best-effort SQL parameterization for Python and C#.
 
@@ -206,6 +281,10 @@ def _transform_sql_injection(line: str, finding: Optional[Dict] = None) -> Optio
 
     # ── C# transforms ──────────────────────────────────────────────────────
     if ext == ".cs":
+        odata_line = _transform_csharp_odata(line)
+        if odata_line is not None:
+            return odata_line
+
         # Pattern: [var/string] name = $"...{var1}...{var2}...";
         m = re.match(
             r'^(\s*)(?:(?:var|string)\s+)?(\w+)\s*=\s*\$["\'](.+?)["\'];?\s*$',
@@ -447,6 +526,7 @@ def _is_inside_multiline_string(lines: List[str], zero_based_idx: int) -> bool:
 def _apply_all_transforms(
     lines: List[str],
     file_findings: List[Dict[str, Any]],
+    report_url: str = "",
 ) -> Tuple[List[str], List[Dict[str, Any]]]:
     """Apply all applicable transforms to a file's lines (in-place on a copy).
 
@@ -483,12 +563,7 @@ def _apply_all_transforms(
         if transform_key == "yaml_load_to_safe_load":
             new_line = _transform_yaml_load(original)
             if new_line is not None:
-                if not _is_inside_multiline_string(working, idx):
-                    _cmt = _build_comment_line(original, _FIX_REASON_COMMENTS[transform_key], file_path)
-                    working.insert(idx, _cmt)
-                    working[idx + 1] = new_line
-                else:
-                    working[idx] = new_line
+                working[idx] = new_line
                 applied.append({
                     "file": file_path,
                     "line": line_num,
@@ -504,12 +579,7 @@ def _apply_all_transforms(
         elif transform_key == "requests_verify_false":
             new_line = _transform_requests_verify(original)
             if new_line is not None:
-                if not _is_inside_multiline_string(working, idx):
-                    _cmt = _build_comment_line(original, _FIX_REASON_COMMENTS[transform_key], file_path)
-                    working.insert(idx, _cmt)
-                    working[idx + 1] = new_line
-                else:
-                    working[idx] = new_line
+                working[idx] = new_line
                 applied.append({
                     "file": file_path,
                     "line": line_num,
@@ -525,12 +595,7 @@ def _apply_all_transforms(
         elif transform_key == "weak_hash_upgrade":
             new_line = _transform_weak_hash(original)
             if new_line is not None:
-                if not _is_inside_multiline_string(working, idx):
-                    _cmt = _build_comment_line(original, _FIX_REASON_COMMENTS[transform_key], file_path)
-                    working.insert(idx, _cmt)
-                    working[idx + 1] = new_line
-                else:
-                    working[idx] = new_line
+                working[idx] = new_line
                 applied.append({
                     "file": file_path,
                     "line": line_num,
@@ -546,12 +611,7 @@ def _apply_all_transforms(
         elif transform_key == "sql_parameterize":
             new_line = _transform_sql_injection(original, finding)
             if new_line is not None:
-                if not _is_inside_multiline_string(working, idx):
-                    _cmt = _build_comment_line(original, _FIX_REASON_COMMENTS[transform_key], file_path)
-                    working.insert(idx, _cmt)
-                    working[idx + 1] = new_line
-                else:
-                    working[idx] = new_line
+                working[idx] = new_line
                 applied.append({
                     "file": file_path,
                     "line": line_num,
@@ -564,37 +624,11 @@ def _apply_all_transforms(
                     "transform": transform_key,
                 })
             else:
-                # Pattern not recognised or non-Python file — insert a language-appropriate
-                # advisory comment above the flagged line so it appears in the PR diff.
-                # The existing line is NOT modified; the comment is a review marker only.
-                recommendation = (finding.get("recommendation") or "").strip()
-                ext = Path(file_path).suffix.lower() if file_path else ".py"
-                if recommendation:
-                    # Use the scanner's own recommendation (already language-specific)
-                    advice = recommendation
-                elif ext == ".cs":
-                    advice = (
-                        "Use SqlCommand with SqlParameter: "
-                        "cmd.Parameters.AddWithValue(\"@param\", value)"
-                    )
-                elif ext == ".java":
-                    advice = (
-                        "Use PreparedStatement: "
-                        "conn.prepareStatement(\"SELECT ... WHERE id=?\"); stmt.setInt(1, id)"
-                    )
-                elif ext in (".js", ".ts"):
-                    advice = (
-                        "Use a parameterized query: "
-                        "db.query('SELECT ... WHERE id=?', [id])"
-                    )
-                else:
-                    advice = (
-                        "Parameterize this SQL query — "
-                        "never build SQL from user-controlled strings"
-                    )
-                message = f"TODO [CWE-89]: {advice}"
+                # Pattern not recognised or non-Python file — insert a short advisory
+                # comment linking to the report rather than a verbose inline essay.
                 if _is_inside_multiline_string(working, idx):
                     continue
+                message = _build_report_comment("sql_parameterize", report_url)
                 comment_line = _build_comment_line(original, message, file_path)
                 working.insert(idx, comment_line)
                 applied.append({
@@ -612,12 +646,7 @@ def _apply_all_transforms(
         elif transform_key == "hardcoded_credential_to_env":
             new_line = _transform_hardcoded_credential(original, finding)
             if new_line is not None:
-                if not _is_inside_multiline_string(working, idx):
-                    _cmt = _build_comment_line(original, _FIX_REASON_COMMENTS[transform_key], file_path)
-                    working.insert(idx, _cmt)
-                    working[idx + 1] = new_line
-                else:
-                    working[idx] = new_line
+                working[idx] = new_line
                 applied.append({
                     "file": file_path,
                     "line": line_num,
@@ -630,13 +659,10 @@ def _apply_all_transforms(
                     "transform": transform_key,
                 })
             else:
-                # Private key blocks / multi-line patterns — insert advisory comment
-                message = (
-                    "SECURITY [CWE-798]: Hardcoded secret detected. "
-                    "Replace with os.environ.get('SECRET_NAME') or an Azure Key Vault reference."
-                )
+                # Private key blocks / multi-line patterns — insert short advisory comment
                 if _is_inside_multiline_string(working, idx):
                     continue
+                message = _build_report_comment("private_key_comment", report_url)
                 comment_line = _build_comment_line(original, message, file_path)
                 working.insert(idx, comment_line)
                 applied.append({
@@ -654,12 +680,7 @@ def _apply_all_transforms(
         elif transform_key == "command_shell_fix":
             new_line = _transform_command_injection(original)
             if new_line is not None:
-                if not _is_inside_multiline_string(working, idx):
-                    _cmt = _build_comment_line(original, _FIX_REASON_COMMENTS[transform_key], file_path)
-                    working.insert(idx, _cmt)
-                    working[idx + 1] = new_line
-                else:
-                    working[idx] = new_line
+                working[idx] = new_line
                 applied.append({
                     "file": file_path,
                     "line": line_num,
@@ -673,12 +694,9 @@ def _apply_all_transforms(
                 })
             else:
                 # eval() / exec() / os.system() — no safe mechanical substitute
-                message = (
-                    "SECURITY [CWE-78/94]: Dynamic command/code execution detected. "
-                    "Validate all inputs; avoid eval/exec; prefer subprocess with shell=False."
-                )
                 if _is_inside_multiline_string(working, idx):
                     continue
+                message = _build_report_comment("command_injection_comment", report_url)
                 comment_line = _build_comment_line(original, message, file_path)
                 working.insert(idx, comment_line)
                 applied.append({
@@ -694,10 +712,10 @@ def _apply_all_transforms(
                 })
 
         else:
-            # Comment-based transforms — insert a warning above the flagged line
+            # Comment-based transforms — insert a short warning linking to the report
             if _is_inside_multiline_string(working, idx):
                 continue
-            message = _COMMENT_MESSAGES.get(transform_key, "SECURITY: Review this line.")
+            message = _build_report_comment(transform_key, report_url)
             comment_line = _build_comment_line(original, message, file_path)
             working.insert(idx, comment_line)
             applied.append({
@@ -757,8 +775,11 @@ def generate_fixes(args: Dict[str, Any]) -> Dict[str, Any]:
     """Generate fix suggestions for a list of findings.
 
     Args (dict keys):
-        findings  list[dict]  findings from sql_scanner and/or security_scanner
-        base_dir  str         optional base directory to resolve relative paths
+        findings    list[dict]  findings from sql_scanner and/or security_scanner
+        base_dir    str         optional base directory to resolve relative paths
+        report_url  str         optional URL of the HTML report; used to build short
+                                inline comments (e.g. ``SECURITY FIX [CWE-89] — see: <url>``)
+                                instead of verbose explanatory text in the code diff
 
     Returns dict with:
         fix_suggestions  list[dict]      per-finding suggestion records
@@ -768,6 +789,7 @@ def generate_fixes(args: Dict[str, Any]) -> Dict[str, Any]:
     """
     findings: List[Dict[str, Any]] = args.get("findings", [])
     base_dir_str: str = args.get("base_dir", "")
+    report_url: str = args.get("report_url", "")
     base_dir = Path(base_dir_str) if base_dir_str else None
 
     if not isinstance(findings, list):
@@ -838,7 +860,7 @@ def generate_fixes(args: Dict[str, Any]) -> Dict[str, Any]:
             continue
 
         original_lines = content.splitlines(keepends=True)
-        fixed_lines, applied = _apply_all_transforms(original_lines, file_findings)
+        fixed_lines, applied = _apply_all_transforms(original_lines, file_findings, report_url)
 
         if applied:
             # Compute relative path for diff header if possible

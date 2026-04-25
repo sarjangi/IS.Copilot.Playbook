@@ -220,6 +220,48 @@ def _rel_path(abs_path: str, base_dir: str) -> str:
         return abs_path
 
 
+def _normalize_findings_paths(findings: List[Dict[str, Any]], base_dir: str) -> List[Dict[str, Any]]:
+    """Return a copy of findings with file paths converted to repo-relative paths.
+
+    This prevents cross-clone path issues when the same findings are reused in
+    a different temporary clone (e.g. per-severity PR creation).
+    """
+    normalized: List[Dict[str, Any]] = []
+    for finding in findings:
+        f = dict(finding)
+        raw = str(f.get("file", "") or "")
+        if raw:
+            f["file"] = _rel_path(raw, base_dir)
+        normalized.append(f)
+    return normalized
+
+
+def _find_line_number(text: str, token: str) -> int:
+    """Return 1-based line number of the first token match, or 1 if not found."""
+    idx = text.find(token)
+    if idx < 0:
+        return 1
+    return text[:idx].count("\n") + 1
+
+
+def _build_report_file_url(repo_url: str, branch_name: str, line: int = 1) -> str:
+    """Build a deep link to security-report.html for a specific branch and line.
+
+    Azure DevOps supports line-query links via _a=contents.
+    GitHub supports #L anchors on blob URLs.
+    """
+    parsed = parse_repo_url(repo_url)
+    if parsed["platform"] == "azuredevops":
+        org, project, repo = parsed["org"], parsed["project"], parsed["repo"]
+        return (
+            f"https://dev.azure.com/{org}/{project}/_git/{repo}"
+            f"?path=%2Fsecurity-report.html&version=GB{branch_name}&_a=contents"
+            f"&line={line}&lineEnd={line}&lineStartColumn=1&lineEndColumn=200"
+        )
+    owner, repo = parsed["owner"], parsed["repo"]
+    return f"https://github.com/{owner}/{repo}/blob/{branch_name}/security-report.html#L{line}"
+
+
 def _build_html_report(
     repo_url: str,
     scan_dir: str,
@@ -285,7 +327,7 @@ def _build_html_report(
 
     # Fix suggestions rows
     fix_rows = []
-    for suggestion in fix_suggestions:
+    for idx, suggestion in enumerate(fix_suggestions, start=1):
         sev = (suggestion.get("severity") or "").upper()
         rel = _rel_path(suggestion.get("file", ""), scan_dir)
         line = suggestion.get("line", "")
@@ -298,7 +340,7 @@ def _build_html_report(
         orig = _esc(suggestion.get("original_code") or "")
         fixed = _esc(suggestion.get("fixed_code") or "")
         fix_rows.append(
-            f"<tr>"
+            f"<tr data-fix-index=\"{idx}\">"
             f"<td><span class='sev-{sev}'>{sev}</span></td>"
             f"<td>{rel}:{line}</td>"
             f"<td>{badge}</td>"
@@ -386,8 +428,9 @@ def run_pipeline(args: Dict[str, Any]) -> Dict[str, Any]:
         stats             dict
         html_report       str  (full HTML report as string)
         html_report_path  str  (path where HTML was saved, or "" if output_file not given)
-        pr_url            str  (run mode only, empty on dry_run or if no fixes)
-        branch_name       str  (run mode only)
+        pr_url            str  (run mode only, first created PR URL for backward compatibility)
+        branch_name       str  (run mode only, first created branch for backward compatibility)
+        severity_prs      list (run mode only; one entry per severity with findings)
     """
     if not _GIT_AVAILABLE:
         return {"error": "GitPython is not installed. Run: pip install gitpython"}
@@ -461,7 +504,7 @@ def run_pipeline(args: Dict[str, Any]) -> Dict[str, Any]:
         sql_result = scan_sql_injection_directory(
             {"directory_path": temp_dir, "recursive": True}
         )
-        sql_findings: List[Dict] = sql_result.get("findings", [])
+        sql_findings: List[Dict] = _normalize_findings_paths(sql_result.get("findings", []), temp_dir)
 
         # -----------------------------------------------------------------------
         # Step 3: Security scan
@@ -469,14 +512,43 @@ def run_pipeline(args: Dict[str, Any]) -> Dict[str, Any]:
         sec_result = scan_security_vulnerabilities(
             {"action": "scan_path", "target_path": temp_dir, "profile": scan_profile}
         )
-        security_findings: List[Dict] = sec_result.get("findings", [])
+        security_findings: List[Dict] = _normalize_findings_paths(sec_result.get("findings", []), temp_dir)
 
         all_findings = sql_findings + security_findings
 
         # -----------------------------------------------------------------------
         # Step 4: Generate fix suggestions
         # -----------------------------------------------------------------------
-        fix_result = generate_fixes({"findings": all_findings, "base_dir": temp_dir})
+        # Pre-compute the branch name now so the report URL can be embedded in
+        # inline comments as a clickable reference (ADO "copy link" equivalent).
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dt%H%M%S")
+        pbi_number_str = str(args.get("pbi_number", "")).strip()
+        _auto_branch_preview = (
+            f"PBI-{pbi_number_str}-security-fixes-{ts}"
+            if pbi_number_str.isdigit()
+            else f"security-fixes-{ts}"
+        )
+        try:
+            _parsed = parse_repo_url(repo_url)
+            if _parsed["platform"] == "azuredevops":
+                _org, _project, _repo = _parsed["org"], _parsed["project"], _parsed["repo"]
+                _preview_report_url = (
+                    f"https://dev.azure.com/{_org}/{_project}/_git/{_repo}"
+                    f"?path=%2Fsecurity-report.html&version=GB{_auto_branch_preview}&_a=contents"
+                )
+            else:
+                _owner, _repo = _parsed["owner"], _parsed["repo"]
+                _preview_report_url = (
+                    f"https://github.com/{_owner}/{_repo}/blob/{_auto_branch_preview}/security-report.html"
+                )
+        except Exception:
+            _preview_report_url = ""
+
+        fix_result = generate_fixes({
+            "findings": all_findings,
+            "base_dir": temp_dir,
+            "report_url": _preview_report_url,
+        })
         fix_suggestions = fix_result.get("fix_suggestions", [])
         combined_patch = fix_result.get("combined_patch", "")
 
@@ -485,62 +557,131 @@ def run_pipeline(args: Dict[str, Any]) -> Dict[str, Any]:
         # -----------------------------------------------------------------------
         pr_url = ""
         branch_name = ""
+        severity_prs: List[Dict[str, Any]] = []
 
         if action == "run":
-            work_item_ids = [int(pbi_number)] if pbi_number.isdigit() else []
-            # Pre-build branch name with PBI prefix so it's consistent
-            ts = datetime.now(timezone.utc).strftime("%Y%m%dt%H%M%S")
-            auto_branch = f"PBI-{pbi_number}-security-fixes-{ts}" if pbi_number.isdigit() else f"security-fixes-{ts}"
+            work_item_ids = [int(pbi_number_str)] if pbi_number_str.isdigit() else []
+            sev_order = ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
 
-            pr_description = _build_pr_body(
-                repo_url, len(all_findings), fix_result, pr_body_extra,
-                sql_findings=sql_findings, security_findings=security_findings,
-                branch_name=auto_branch,
-            )
-            # Build a preliminary HTML report (no pr_url yet) and write it into
-            # the cloned repo so it is committed alongside the code fixes.
-            _html_for_commit = _build_html_report(
-                repo_url, temp_dir, sql_findings, security_findings,
-                fix_result, action, "", "",
-            )
-            _report_filename = "security-report.html"
-            import os as _os
-            _report_in_repo = _os.path.join(temp_dir, _report_filename)
-            with open(_report_in_repo, "w", encoding="utf-8") as _fh:
-                _fh.write(_html_for_commit)
+            for sev in sev_order:
+                sev_findings = [
+                    f for f in all_findings
+                    if (f.get("severity") or "").upper() == sev
+                ]
+                if not sev_findings:
+                    continue
 
-            pr_result = create_pr(
-                {
-                    "repo_url": repo_url,
-                    "base_branch": base_branch,
-                    "auth_token": auth_token,
-                    "repo_dir": temp_dir,
-                    "findings": all_findings,
-                    "pr_title": pr_title,
-                    "pr_body": pr_description,
-                    "extra_files": [_report_filename],
-                    "work_item_ids": work_item_ids,
-                    "branch_name": auto_branch,
-                }
-            )
-            if "error" in pr_result:
-                # Non-fatal: include the error in the result but still return the report
-                return {
-                    "action": action,
-                    "repo_url": repo_url,
-                    "error": pr_result["error"],
-                    "branch_name": pr_result.get("branch_name", auto_branch),
-                    "total_findings": len(all_findings),
-                    "fix_suggestions": fix_suggestions,
-                    "combined_patch": combined_patch,
-                    "stats": fix_result.get("stats", {}),
-                    "html_report": _build_html_report(
-                        repo_url, temp_dir, sql_findings, security_findings,
-                        fix_result, action, "", "",
-                    ),
-                }
-            pr_url = pr_result.get("pr_url", "")
-            branch_name = pr_result.get("branch_name", "")
+                sev_suffix = sev.lower()
+                sev_branch = f"{_auto_branch_preview}-{sev_suffix}"
+
+                try:
+                    sev_report_url = _build_report_file_url(repo_url, sev_branch, 1)
+                except Exception:
+                    sev_report_url = ""
+
+                sev_fix_result = generate_fixes(
+                    {"findings": sev_findings, "base_dir": temp_dir, "report_url": sev_report_url}
+                )
+                sev_sql = [f for f in sql_findings if (f.get("severity") or "").upper() == sev]
+                sev_sec = [f for f in security_findings if (f.get("severity") or "").upper() == sev]
+
+                sev_pr_title = f"[{sev}] {pr_title}"
+                sev_pr_description = _build_pr_body(
+                    repo_url,
+                    len(sev_findings),
+                    sev_fix_result,
+                    pr_body_extra,
+                    sql_findings=sev_sql,
+                    security_findings=sev_sec,
+                    branch_name=sev_branch,
+                )
+
+                sev_repo_dir = tempfile.mkdtemp(prefix=f"ip_pipeline_{sev_suffix}_")
+                try:
+                    try:
+                        _clone_repo(repo_url, sev_repo_dir, auth_token, branch)
+                    except GitCommandError as exc:
+                        severity_prs.append({
+                            "severity": sev,
+                            "findings": len(sev_findings),
+                            "error": f"Clone failed: {exc}",
+                            "branch_name": sev_branch,
+                            "pr_url": "",
+                        })
+                        continue
+
+                    _html_for_commit = _build_html_report(
+                        repo_url,
+                        sev_repo_dir,
+                        sev_sql,
+                        sev_sec,
+                        sev_fix_result,
+                        action,
+                        "",
+                        "",
+                    )
+                    fix_section_line = _find_line_number(_html_for_commit, "<h2>Fix Suggestions")
+                    sev_report_url = _build_report_file_url(repo_url, sev_branch, fix_section_line)
+
+                    sev_fix_links: List[Dict[str, Any]] = []
+                    for idx, suggestion in enumerate(sev_fix_result.get("fix_suggestions", []), start=1):
+                        token = f'data-fix-index="{idx}"'
+                        line_no = _find_line_number(_html_for_commit, token)
+                        sev_fix_links.append(
+                            {
+                                "file": suggestion.get("file", ""),
+                                "line": suggestion.get("line", ""),
+                                "cwe": suggestion.get("cwe", ""),
+                                "severity": suggestion.get("severity", sev),
+                                "report_url": _build_report_file_url(repo_url, sev_branch, line_no),
+                            }
+                        )
+                    _report_filename = "security-report.html"
+                    import os as _os
+                    _report_in_repo = _os.path.join(sev_repo_dir, _report_filename)
+                    with open(_report_in_repo, "w", encoding="utf-8") as _fh:
+                        _fh.write(_html_for_commit)
+
+                    sev_pr_result = create_pr(
+                        {
+                            "repo_url": repo_url,
+                            "base_branch": base_branch,
+                            "auth_token": auth_token,
+                            "repo_dir": sev_repo_dir,
+                            "findings": sev_findings,
+                            "pr_title": sev_pr_title,
+                            "pr_body": sev_pr_description,
+                            "extra_files": [_report_filename],
+                            "work_item_ids": work_item_ids,
+                            "branch_name": sev_branch,
+                        }
+                    )
+
+                    if "error" in sev_pr_result:
+                        severity_prs.append({
+                            "severity": sev,
+                            "findings": len(sev_findings),
+                            "error": sev_pr_result["error"],
+                            "branch_name": sev_pr_result.get("branch_name", sev_branch),
+                            "pr_url": "",
+                            "report_url": sev_report_url,
+                            "report_fix_links": sev_fix_links,
+                        })
+                    else:
+                        entry = {
+                            "severity": sev,
+                            "findings": len(sev_findings),
+                            "pr_url": sev_pr_result.get("pr_url", ""),
+                            "branch_name": sev_pr_result.get("branch_name", sev_branch),
+                            "report_url": sev_report_url,
+                            "report_fix_links": sev_fix_links,
+                        }
+                        severity_prs.append(entry)
+                        if not pr_url and entry["pr_url"]:
+                            pr_url = entry["pr_url"]
+                            branch_name = entry["branch_name"]
+                finally:
+                    shutil.rmtree(sev_repo_dir, ignore_errors=True)
 
         # -----------------------------------------------------------------------
         # Step 6: HTML report
@@ -575,6 +716,7 @@ def run_pipeline(args: Dict[str, Any]) -> Dict[str, Any]:
             "html_report_path": html_report_path,
             "pr_url": pr_url,
             "branch_name": branch_name,
+            "severity_prs": severity_prs,
         }
 
     finally:

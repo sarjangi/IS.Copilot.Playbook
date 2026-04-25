@@ -200,6 +200,35 @@ class TestTransformSqlInjection(unittest.TestCase):
         self.assertIn("userId", result)
         self.assertIn("AddWithValue", result)
 
+    def test_csharp_odata_filter_interpolation_is_sanitized(self):
+        line = 'return $"contacts?$filter={criteria.Field.ToLower()} eq \'{criteria.Value}\'";\n'
+        result = _transform_sql_injection(line, self._finding(".cs"))
+        self.assertIsNotNone(result)
+        self.assertIn("Regex.Replace", result)
+        self.assertIn("EscapeDataString", result)
+        self.assertNotIn("TODO [CWE-89]", result)
+
+    def test_csharp_odata_search_interpolation_is_escaped(self):
+        line = 'var url = $"entities?$search={userInput}";\n'
+        result = _transform_sql_injection(line, self._finding(".cs"))
+        self.assertIsNotNone(result)
+        self.assertIn("EscapeDataString", result)
+        self.assertNotIn("TODO [CWE-89]", result)
+
+    def test_csharp_odata_orderby_interpolation_is_sanitized(self):
+        line = 'var url = $"contacts?$orderby={sortField} asc";\n'
+        result = _transform_sql_injection(line, self._finding(".cs"))
+        self.assertIsNotNone(result)
+        self.assertIn("Regex.Replace", result)
+        self.assertNotIn("TODO [CWE-89]", result)
+
+    def test_csharp_odata_concat_filter_value_is_escaped(self):
+        line = 'var url = "contacts?$filter=name eq \'" + value + "\'";\n'
+        result = _transform_sql_injection(line, self._finding(".cs"))
+        self.assertIsNotNone(result)
+        self.assertIn("EscapeDataString", result)
+        self.assertNotIn("TODO [CWE-89]", result)
+
 
 # ---------------------------------------------------------------------------
 # _transform_hardcoded_credential
@@ -435,9 +464,8 @@ class TestApplyAllTransforms(unittest.TestCase):
         findings = [_make_finding(line=2, cwe="CWE-502", issue="yaml", code="yaml.load")]
         result_lines, applied = _apply_all_transforms(lines, findings)
         self.assertEqual(len(applied), 1)
-        # Comment line inserted before fixed line — safe_load is now at index 2
-        self.assertIn("SECURITY FIX", result_lines[1])
-        self.assertIn("yaml.safe_load", result_lines[2])
+        self.assertEqual(len(result_lines), 2)
+        self.assertIn("yaml.safe_load", result_lines[1])
 
     def test_comment_inserted_above_pickle(self):
         # pickle is suggestion-only — no comment inserted, file unchanged
@@ -452,27 +480,25 @@ class TestApplyAllTransforms(unittest.TestCase):
         findings = [_make_finding(line=2, cwe="CWE-327", issue="Weak hash MD5", code="hashlib.md5")]
         result_lines, applied = _apply_all_transforms(lines, findings)
         self.assertEqual(len(applied), 1)
-        # Comment line inserted before fixed line — sha256 is now at index 2
-        self.assertIn("sha256", result_lines[2])
-        self.assertNotIn("md5", result_lines[2])
+        self.assertIn("sha256", result_lines[1])
+        self.assertNotIn("md5", result_lines[1])
 
     def test_weak_hash_sha1_replaced_with_sha256(self):
         lines = ["import hashlib\n", "h = hashlib.sha1(data)\n"]
         findings = [_make_finding(line=2, cwe="CWE-327", issue="Weak hash SHA1", code="hashlib.sha1")]
         result_lines, applied = _apply_all_transforms(lines, findings)
         self.assertEqual(len(applied), 1)
-        # Comment line inserted before fixed line — sha256 is now at index 2
-        self.assertIn("sha256", result_lines[2])
-        self.assertNotIn("sha1", result_lines[2])
+        self.assertIn("sha256", result_lines[1])
+        self.assertNotIn("sha1", result_lines[1])
 
     def test_weak_hash_new_md5_replaced(self):
         lines = ["h = hashlib.new('md5')\n"]
         findings = [_make_finding(line=1, cwe="CWE-327", issue="Weak hash", code="hashlib.new('md5')")]
         result_lines, applied = _apply_all_transforms(lines, findings)
         self.assertEqual(len(applied), 1)
-        # Comment line inserted before fixed line — sha256 is now at index 1
-        self.assertIn("sha256", result_lines[1])
-        self.assertNotIn("md5", result_lines[1])
+        self.assertEqual(len(result_lines), 1)
+        self.assertIn("sha256", result_lines[0])
+        self.assertNotIn("md5", result_lines[0])
 
     def test_multiple_findings_reverse_order_correct(self):
         """Two yaml.load fixes in one file should both be applied correctly."""
@@ -488,10 +514,9 @@ class TestApplyAllTransforms(unittest.TestCase):
         ]
         result_lines, applied = _apply_all_transforms(lines, findings)
         self.assertEqual(len(applied), 2)
-        # Each auto-fix inserts a reason comment above the fixed line — 4 original + 2 comments = 6
-        self.assertEqual(len(result_lines), 6)
-        self.assertIn("yaml.safe_load", result_lines[2])
-        self.assertIn("yaml.safe_load", result_lines[5])
+        self.assertEqual(len(result_lines), 4)
+        self.assertIn("yaml.safe_load", result_lines[1])
+        self.assertIn("yaml.safe_load", result_lines[3])
 
     def test_out_of_range_line_skipped(self):
         lines = ["x = 1\n"]
@@ -507,8 +532,8 @@ class TestApplyAllTransforms(unittest.TestCase):
         )]
         result_lines, applied = _apply_all_transforms(lines, findings)
         self.assertEqual(len(applied), 1)
-        # Comment line inserted before fixed line — parameterized query is now at index 1
-        self.assertIn("?", result_lines[1])
+        self.assertEqual(len(result_lines), 1)
+        self.assertIn("?", result_lines[0])
         self.assertTrue(applied[0]["auto_fixable"])
 
     def test_sql_unmatched_inserts_comment(self):
@@ -525,7 +550,7 @@ class TestApplyAllTransforms(unittest.TestCase):
         self.assertIn("CWE-89", result_lines[0])
 
     def test_sql_csharp_comment_uses_csharp_advice(self):
-        """C# SQL finding fallback must use SqlParameter advice, not Python cursor.execute."""
+        """C# SQL finding fallback must insert a short security comment in // syntax."""
         lines = ['    db.Execute("SELECT * FROM t WHERE id=" + userId);\n']
         findings = [_make_finding(
             file="Repo.cs", line=1, cwe="CWE-89", issue="SQL injection",
@@ -534,12 +559,12 @@ class TestApplyAllTransforms(unittest.TestCase):
         result_lines, applied = _apply_all_transforms(lines, findings)
         self.assertEqual(len(applied), 1)
         comment = result_lines[0]
-        # Must not contain Python-specific cursor.execute advice
-        self.assertNotIn("cursor.execute", comment)
-        # Must use the recommendation from the finding
-        self.assertIn("SqlParameter", comment)
         # Comment syntax must be // for C#
         self.assertIn("//", comment)
+        # Must reference the CWE so reviewers know what to look up in the report
+        self.assertIn("CWE-89", comment)
+        # Must NOT contain Python-specific cursor.execute advice (verbose text removed)
+        self.assertNotIn("cursor.execute", comment)
 
     def test_sql_log_line_not_flagged_by_partial_keyword(self):
         """Regression: SQL verbs used as English words in log messages must not match.
@@ -599,8 +624,8 @@ class TestApplyAllTransforms(unittest.TestCase):
         )]
         result_lines, applied = _apply_all_transforms(lines, findings)
         self.assertEqual(len(applied), 1)
-        # Comment line inserted before fixed line — shell=False is now at index 1
-        self.assertIn("shell=False", result_lines[1])
+        self.assertEqual(len(result_lines), 1)
+        self.assertIn("shell=False", result_lines[0])
         self.assertTrue(applied[0]["auto_fixable"])
 
     def test_eval_inserts_comment_in_apply(self):

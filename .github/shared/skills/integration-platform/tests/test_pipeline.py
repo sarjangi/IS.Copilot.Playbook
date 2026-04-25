@@ -547,10 +547,11 @@ class TestRunPipelineRunMode(unittest.TestCase):
             }
         )
 
-        # Error reported but html_report still present
-        self.assertIn("error", result)
+        # Per-severity error is reported in severity_prs and html_report is still present
         self.assertIn("html_report", result)
         self.assertEqual(result["action"], "run")
+        self.assertIn("severity_prs", result)
+        self.assertTrue(any("error" in entry for entry in result["severity_prs"]))
 
     @patch("pipeline._GIT_AVAILABLE", True)
     @patch("pipeline.shutil.rmtree")
@@ -606,9 +607,9 @@ class TestRunPipelineRunMode(unittest.TestCase):
         mock_create_pr,
         mock_rmtree,
     ):
-        mock_sql.return_value = {"findings": [], "success": True}
+        mock_sql.return_value = {"findings": [_make_finding()], "success": True}
         mock_sec.return_value = {"findings": [], "success": True}
-        mock_fixes.return_value = _fix_result([])
+        mock_fixes.return_value = _fix_result([_make_finding()])
         mock_create_pr.return_value = {
             "pr_url": "https://github.com/org/repo/pull/99",
             "branch_name": "sec-99",
@@ -643,9 +644,9 @@ class TestRunPipelineRunMode(unittest.TestCase):
         mock_create_pr,
         mock_rmtree,
     ):
-        mock_sql.return_value = {"findings": [], "success": True}
+        mock_sql.return_value = {"findings": [_make_finding()], "success": True}
         mock_sec.return_value = {"findings": [], "success": True}
-        mock_fixes.return_value = _fix_result([])
+        mock_fixes.return_value = _fix_result([_make_finding()])
         mock_create_pr.return_value = {
             "pr_url": "https://github.com/org/repo/pull/1",
             "branch_name": "sec-1",
@@ -664,7 +665,7 @@ class TestRunPipelineRunMode(unittest.TestCase):
         )
 
         call_args = mock_create_pr.call_args[0][0]
-        self.assertEqual(call_args["pr_title"], "My Custom Title")
+        self.assertEqual(call_args["pr_title"], "[HIGH] My Custom Title")
 
     @patch("pipeline._GIT_AVAILABLE", True)
     @patch("pipeline.shutil.rmtree")
@@ -682,9 +683,9 @@ class TestRunPipelineRunMode(unittest.TestCase):
         mock_create_pr,
         mock_rmtree,
     ):
-        mock_sql.return_value = {"findings": [], "success": True}
+        mock_sql.return_value = {"findings": [_make_finding()], "success": True}
         mock_sec.return_value = {"findings": [], "success": True}
-        mock_fixes.return_value = _fix_result([])
+        mock_fixes.return_value = _fix_result([_make_finding()])
         mock_create_pr.return_value = {
             "pr_url": "https://github.com/org/repo/pull/1",
             "branch_name": "sec",
@@ -704,6 +705,112 @@ class TestRunPipelineRunMode(unittest.TestCase):
 
         call_args = mock_create_pr.call_args[0][0]
         self.assertEqual(call_args["base_branch"], "develop")
+
+    @patch("pipeline._GIT_AVAILABLE", True)
+    @patch("pipeline.shutil.rmtree")
+    @patch("pipeline.create_pr")
+    @patch("pipeline.generate_fixes")
+    @patch("pipeline.scan_security_vulnerabilities")
+    @patch("pipeline.scan_sql_injection_directory")
+    @patch("pipeline.Repo")
+    def test_run_mode_creates_multiple_prs_by_severity(
+        self,
+        mock_repo_cls,
+        mock_sql,
+        mock_sec,
+        mock_fixes,
+        mock_create_pr,
+        mock_rmtree,
+    ):
+        crit = _make_finding(severity="CRITICAL", cwe="CWE-502", issue="Unsafe yaml")
+        high = _make_finding(severity="HIGH", cwe="CWE-89", issue="SQL injection")
+        findings = [crit, high]
+        mock_sql.return_value = {"findings": findings, "success": True}
+        mock_sec.return_value = {"findings": [], "success": True}
+        mock_fixes.return_value = _fix_result(findings)
+        mock_create_pr.side_effect = [
+            {
+                "pr_url": "https://github.com/org/repo/pull/100",
+                "branch_name": "sec-critical",
+                "files_changed": 1,
+                "platform": "github",
+            },
+            {
+                "pr_url": "https://github.com/org/repo/pull/101",
+                "branch_name": "sec-high",
+                "files_changed": 1,
+                "platform": "github",
+            },
+        ]
+
+        result = run_pipeline(
+            {
+                "action": "run",
+                "branch": "main",
+                "repo_url": "https://github.com/org/repo.git",
+                "auth_token": "tok",
+            }
+        )
+
+        self.assertEqual(mock_create_pr.call_count, 2)
+        self.assertIn("severity_prs", result)
+        self.assertEqual(len(result["severity_prs"]), 2)
+        severities = {entry["severity"] for entry in result["severity_prs"]}
+        self.assertEqual(severities, {"CRITICAL", "HIGH"})
+        for entry in result["severity_prs"]:
+            self.assertIn("report_url", entry)
+            self.assertTrue(entry["report_url"])
+            self.assertIn("security-report.html", entry["report_url"])
+            self.assertIn("report_fix_links", entry)
+            self.assertIsInstance(entry["report_fix_links"], list)
+
+    @patch("pipeline._GIT_AVAILABLE", True)
+    @patch("pipeline.tempfile.mkdtemp")
+    @patch("pipeline.shutil.rmtree")
+    @patch("pipeline.create_pr")
+    @patch("pipeline.generate_fixes")
+    @patch("pipeline.scan_security_vulnerabilities")
+    @patch("pipeline.scan_sql_injection_directory")
+    @patch("pipeline.Repo")
+    def test_run_mode_passes_relative_finding_paths_to_create_pr(
+        self,
+        mock_mkdtemp,
+        mock_repo_cls,
+        mock_sql,
+        mock_sec,
+        mock_fixes,
+        mock_create_pr,
+        mock_rmtree,
+    ):
+        mock_mkdtemp.side_effect = [
+            "C:/temp/ip_pipeline_xxx",
+            "C:/temp/ip_pipeline_high_xxx",
+        ]
+        abs_file = "C:/temp/ip_pipeline_xxx/Application/Vancity.Isl.Crm.Context/Queries.cs"
+        finding = _make_finding(severity="HIGH", cwe="CWE-89", issue="SQL injection", file=abs_file)
+        mock_sql.return_value = {"findings": [finding], "success": True}
+        mock_sec.return_value = {"findings": [], "success": True}
+        mock_fixes.return_value = _fix_result([finding])
+        mock_create_pr.return_value = {
+            "pr_url": "https://github.com/org/repo/pull/200",
+            "branch_name": "sec-high",
+            "files_changed": 1,
+            "platform": "github",
+        }
+
+        run_pipeline(
+            {
+                "action": "run",
+                "branch": "main",
+                "repo_url": "https://github.com/org/repo.git",
+                "auth_token": "tok",
+            }
+        )
+
+        create_pr_args = mock_create_pr.call_args[0][0]
+        self.assertTrue(create_pr_args["findings"], "findings should be passed to create_pr")
+        for f in create_pr_args["findings"]:
+            self.assertEqual(f.get("file"), "Application/Vancity.Isl.Crm.Context/Queries.cs")
 
 
 if __name__ == "__main__":

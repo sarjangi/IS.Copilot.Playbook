@@ -75,9 +75,22 @@ class TestParseRepoUrl(unittest.TestCase):
         result = parse_repo_url("https://github.com/acme/my-repo")
         self.assertEqual(result["repo"], "my-repo")
 
+    def test_github_trailing_slash(self):
+        result = parse_repo_url("https://github.com/acme/my-repo/")
+        self.assertEqual(result["repo"], "my-repo")
+
     def test_azdo_dev_azure_com(self):
         result = parse_repo_url(
             "https://dev.azure.com/myorg/myproject/_git/myrepo"
+        )
+        self.assertEqual(result["platform"], "azuredevops")
+        self.assertEqual(result["org"], "myorg")
+        self.assertEqual(result["project"], "myproject")
+        self.assertEqual(result["repo"], "myrepo")
+
+    def test_azdo_dev_azure_com_trailing_slash(self):
+        result = parse_repo_url(
+            "https://dev.azure.com/myorg/myproject/_git/myrepo/"
         )
         self.assertEqual(result["platform"], "azuredevops")
         self.assertEqual(result["org"], "myorg")

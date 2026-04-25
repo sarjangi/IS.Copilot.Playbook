@@ -92,14 +92,14 @@ def parse_repo_url(repo_url: str) -> Dict[str, str]:
 
     if platform == "github":
         # https://github.com/owner/repo.git  or  git@github.com:owner/repo.git
-        m = re.search(r"github\.com[:/]([^/]+)/([^/\s]+?)(?:\.git)?$", repo_url)
+        m = re.search(r"github\.com[:/]([^/]+)/([^/\s]+?)(?:\.git)?/?(?:[?#].*)?$", repo_url)
         if not m:
             raise ValueError(f"Cannot parse GitHub owner/repo from: {repo_url!r}")
         return {"platform": "github", "owner": m.group(1), "repo": m.group(2)}
 
     # Azure DevOps: https://dev.azure.com/{org}/{project}/_git/{repo}
     m = re.search(
-        r"dev\.azure\.com/([^/]+)/([^/]+)/_git/([^/\s]+?)(?:\.git)?(?:[?#].*)?$",
+        r"dev\.azure\.com/([^/]+)/([^/]+)/_git/([^/\s]+?)(?:\.git)?/?(?:[?#].*)?$",
         repo_url,
         re.IGNORECASE,
     )
@@ -112,7 +112,7 @@ def parse_repo_url(repo_url: str) -> Dict[str, str]:
         }
     # Legacy: https://org.visualstudio.com/{project}/_git/{repo}
     m = re.search(
-        r"([^./]+)\.visualstudio\.com/([^/]+)/_git/([^/\s]+?)(?:\.git)?(?:[?#].*)?$",
+        r"([^./]+)\.visualstudio\.com/([^/]+)/_git/([^/\s]+?)(?:\.git)?/?(?:[?#].*)?$",
         repo_url,
         re.IGNORECASE,
     )

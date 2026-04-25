@@ -11,6 +11,8 @@ This repository is the single source of truth for reusable AI-assisted workflows
 ```
 .github/                          # GitHub Copilot customizations
 ├── copilot-instructions.md       # Always-on workspace instructions
+├── agents/                       # Globally deployed autonomous agents
+│   └── security-pipeline.agent.md  # Automated security pipeline with per-severity PRs
 ├── dotnet/                       # .NET / C# specific
 │   ├── skills/                   # Complex multi-step agents
 │   ├── prompts/                  # Slash commands
@@ -82,6 +84,7 @@ Complete documentation: [**docs/**](docs/)
 
 | Type | Description | Where to Find | How to Use |
 |------|-------------|---------------|------------|
+| **Agents** | Autonomous end-to-end pipelines | `.github/agents/*.agent.md` | Select from the agent picker in Copilot Chat |
 | **Skills** | Complex multi-step autonomous agents | `.github/<language>/skills/*/SKILL.md` | Type `/skill-name` in Copilot Chat |
 | **Prompts** | Simple slash commands for quick tasks | `.github/<language>/prompts/*.prompt.md` | Type `/prompt-name` in Copilot Chat |
 | **Instructions** | Auto-applied context for specific file types | `.github/<language>/instructions/*.instructions.md` | Automatically activates when opening matching files |
@@ -105,6 +108,8 @@ Complete documentation: [**docs/**](docs/)
 - **Skills**: 
   - [`example-skill`](.github/shared/skills/example-skill/SKILL.md) - Template for building new skills
   - [`integration-platform`](.github/shared/skills/integration-platform/SKILL.md) - Unified security and repository analysis tools (SQL scanning plus repo analysis)
+- **Agents**:
+  - [`security-pipeline`](.github/agents/security-pipeline.agent.md) - End-to-end automated security pipeline: clone → scan → fix → open one PR per severity category (CRITICAL, HIGH, MEDIUM, LOW). Provide only the repo URL — branch defaults to `main`/`master` and PBI# is auto-generated.
 - **Prompts**: [`code-review`](.github/shared/prompts/code-review.prompt.md) - Comprehensive code reviews
 
 _More content coming soon as teams contribute!_
