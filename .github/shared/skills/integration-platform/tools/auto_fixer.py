@@ -260,6 +260,41 @@ def _transform_csharp_odata(line: str) -> Optional[str]:
             safe_value = _sanitize_odata_identifier_expr(value_expr, force_lower=False)
             return f'{indent}var {var_name} = "{prefix}" + {safe_value} + "{suffix}";\n'
 
+    # Bare interpolated string fragment (multi-line return/assignment continuation):
+    #     return
+    #         $"leads?$filter={criteria.Field.ToLower()} eq '{criteria.Value}'" +
+    #         $"&$expand=...";
+    # Match a line that is just $"..." optionally followed by + or ; (no return/= on this line).
+    m_bare = re.match(
+        r'^(\s*)\$["\'](.+?)["\'](\s*[+;,]?\s*)$',
+        line.rstrip("\n"),
+    )
+    if m_bare:
+        indent, body, trailer = m_bare.groups()
+
+        filter_match = re.match(
+            r'^(.*?\$(?:filter))=\{([^{}]+)\}\s+([A-Za-z]{2,10})\s+\'\{([^{}]+)\}\'(.*)$',
+            body,
+        )
+        if filter_match:
+            prefix, field_expr, operator, value_expr, suffix = filter_match.groups()
+            safe_field = _sanitize_odata_identifier_expr(field_expr, force_lower=True)
+            safe_value = _escape_odata_value_expr(value_expr)
+            new_body = f"{prefix}={{{safe_field}}} {operator} '" + f"{{{safe_value}}}" + f"'{suffix}"
+            return f'{indent}$"{new_body}"{trailer}\n'
+
+        search_match = re.match(r'^(.*?\$(?:search))=\{([^{}]+)\}(.*)$', body)
+        if search_match:
+            prefix, value_expr, suffix = search_match.groups()
+            safe_value = f'System.Uri.EscapeDataString({value_expr.strip()})'
+            return f'{indent}$"{prefix}={{{safe_value}}}{suffix}"{trailer}\n'
+
+        orderby_match = re.match(r'^(.*?\$(?:orderby))=\{([^{}]+)\}(.*)$', body)
+        if orderby_match:
+            prefix, field_expr, suffix = orderby_match.groups()
+            safe_field = _sanitize_odata_identifier_expr(field_expr, force_lower=False)
+            return f'{indent}$"{prefix}={{{safe_field}}}{suffix}"{trailer}\n'
+
     return None
 
 def _transform_sql_injection(line: str, finding: Optional[Dict] = None) -> Optional[str]:
